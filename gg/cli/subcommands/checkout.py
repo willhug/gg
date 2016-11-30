@@ -22,18 +22,25 @@ class GGCheckout(cli.Application):
     feature_name = cli.SwitchAttr(['-f', '--feature'], str, help="base branch name to check out", default=None)
 
     def main(self, *args):
-        current_branch = get_current_branch()
-        if not current_branch:
-            logger.error('no branch currently checked out, cannot checkout relative commit')
-            return 1
-
         if self.getNext:
+            current_branch = get_current_branch()
+            if not current_branch:
+                logger.error('no branch currently checked out, cannot checkout relative commit')
+                return 1
             branch_to_checkout = get_next_branch(current_branch)
         elif self.getPrev:
+            current_branch = get_current_branch()
+            if not current_branch:
+                logger.error('no branch currently checked out, cannot checkout relative commit')
+                return 1
             branch_to_checkout = get_previous_branch(current_branch)
         elif self.part is not None and self.feature_name is not None:
             branch_to_checkout = get_branch_for_feature_part(self.feature_name, self.part)
         elif self.part is not None:
+            current_branch = get_current_branch()
+            if not current_branch:
+                logger.error('no branch currently checked out, cannot checkout relative commit')
+                return 1
             branch = parse_branch_name(current_branch)
             branch_to_checkout = get_branch_for_feature_part(branch.feature, self.part)
         elif self.feature_name is not None:

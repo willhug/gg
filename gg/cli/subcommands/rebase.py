@@ -6,6 +6,7 @@ from gg.gateways.git.branch_delete import safe_git_delete_branch
 from gg.gateways.git.branch_info import get_current_branch
 from gg.gateways.git.branch_create import git_checkout_new_branch
 from gg.gateways.git.cherry_pick import git_cherry_pick, git_cherry_pick_abort, git_cherry_pick_continue
+from gg.gateways.git.commit_info import get_commit
 from gg.gateways.git.reset import git_reset
 from gg.lib.branch_name import get_prefix_branch_name, get_previous_branch
 from gg.lib.log import logger
@@ -103,13 +104,27 @@ Rebase onto the next branch in the stack
 
         # Cherry-pick the changes
         prefix_branch = get_prefix_branch_name(to_rebase_branch)
-        git_cherry_pick(start_ref=prefix_branch, end_ref=to_rebase_branch)
+        if self.branches_are_equal(prefix_branch, to_rebase_branch):
+            # no commits to pick, fastfwd the checkouts instead
+            logger.info("No commits to rebase, Fast forwarding branches")
+            git_checkout(prefix_branch)
+            git_reset(tmp_branch, hard=True)
+            git_checkout(to_rebase_branch)
+            git_reset(tmp_branch, hard=True)
+            git_checkout(tmp_branch)
+        else:
+            logger.info("Cherry-picking changes onto new branch")
+            git_cherry_pick(start_ref=prefix_branch, end_ref=to_rebase_branch)
 
         self.finish_rebase(
             tmp_branch,
             to_rebase_branch,
             rebase_onto_branch
         )
+
+    def branches_are_equal(self, branch1, branch2):
+        """Returns true if two branches are off of the same git hash"""
+        return get_commit(branch1).hash == get_commit(branch2).hash
 
     def finish_rebase(
         self,

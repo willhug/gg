@@ -1,15 +1,11 @@
 import json
 from urllib import parse
-import os
 from typing import List
 
 import requests
 
+from gg.gateways.github import GITHUB_API_URL, GITHUB_TOKEN
 from gg.lib.log import Logger, logger
-
-GITHUB_API_URL = "https://api.github.com"
-GITHUB_TOKEN_ENVVAR = "GITHUB_TOKEN"
-GITHUB_TOKEN = os.environ.get(GITHUB_TOKEN_ENVVAR)
 
 class CorePullRequest:
      number = None # type: int
@@ -18,6 +14,7 @@ class CorePullRequest:
      body = None # type: str
      html_url = None # type: str
      created_at = None # type: str
+     base_ref = None # type: str
 
      def __init__(
          self,
@@ -27,6 +24,7 @@ class CorePullRequest:
          body: str = None,
          html_url: str = None,
          created_at: str = None,
+         base_ref: str = None,
      ):
          self.number = number
          self.state = state
@@ -34,7 +32,7 @@ class CorePullRequest:
          self.body = body
          self.html_url = html_url
          self.created_at = created_at
-
+         self.base_ref = base_ref
 
 def get_core_pulL_request(branch_name: str, repo_user: str, repo_name: str) -> CorePullRequest:
     """Send a request to github for the core pull request info and get the result"""
