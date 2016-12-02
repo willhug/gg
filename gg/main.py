@@ -10,6 +10,7 @@ from gg.cli.subcommands.log import GGLog #nolint
 from gg.cli.subcommands.new import GGNew #nolint
 from gg.cli.subcommands.pullrequest import GGPullRequest #nolint
 from gg.cli.subcommands.rebase import GGRebase #nolint
+from gg.cli.subcommands.review import GGReview #nolint
 from gg.cli.gg import GG
 
 

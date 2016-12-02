@@ -15,6 +15,8 @@ class CorePullRequest:
      html_url = None # type: str
      created_at = None # type: str
      base_ref = None # type: str
+     head_ref = None # type: str
+     author_login = None # type: str
 
      def __init__(
          self,
@@ -25,6 +27,8 @@ class CorePullRequest:
          html_url: str = None,
          created_at: str = None,
          base_ref: str = None,
+         head_ref: str = None,
+         author_login: str = None,
      ):
          self.number = number
          self.state = state
@@ -33,32 +37,48 @@ class CorePullRequest:
          self.html_url = html_url
          self.created_at = created_at
          self.base_ref = base_ref
+         self.head_ref = base_ref
+         self.author_login = author_login
 
 def get_core_pulL_request(branch_name: str, repo_user: str, repo_name: str) -> CorePullRequest:
     """Send a request to github for the core pull request info and get the result"""
-    pr_query_url = "{api_url}/repos/{user}/{repo}/pulls?head={user}:{branch}".format(
+    filter = "?head={user}:{branch}".format(
+        repo=repo_name,
+        branch=parse.quote(branch_name)
+    )
+    prs = get_core_prs(repo_user, repo_name, filter=filter)
+    if len(prs) != 1:
+        raise Exception("Expected one pull request in github")
+
+    return prs[0]
+
+def get_core_prs(repo_user, repo_name, filter="") -> List[CorePullRequest]:
+    """Get all the prs currently out there"""
+    pr_query_url = "{api_url}/repos/{user}/{repo}/pulls{filter}".format(
         api_url=GITHUB_API_URL,
         user=repo_user,
         repo=repo_name,
-        branch=parse.quote(branch_name)
+        filter=filter,
     )
     headers = {'Authorization': 'bearer %s' % GITHUB_TOKEN}
     resp = requests.get(pr_query_url, headers=headers)
 
     resp_body = json.loads(resp.text)
-    if len(resp_body) != 1:
-        raise Exception("Expected one pull request in github")
+    prs = []
+    for pr_body in resp_body:
+        prs.append(CorePullRequest(
+            number=pr_body['number'],
+            state=pr_body['state'],
+            title=pr_body['title'],
+            body=pr_body['body'],
+            html_url=pr_body['html_url'],
+            created_at=pr_body['created_at'],
+            base_ref=pr_body['base']['ref'],
+            head_ref=pr_body['head']['ref'],
+            author_login=pr_body['user']['login'],
+        ))
+    return prs
 
-    pr_body = resp_body[0]
-
-    return CorePullRequest(
-        number=pr_body['number'],
-        state=pr_body['state'],
-        title=pr_body['title'],
-        body=pr_body['body'],
-        html_url=pr_body['html_url'],
-        created_at=pr_body['created_at'],
-    )
 
 class PullRequestBuild:
     state = None # type: str
@@ -149,6 +169,24 @@ class PullRequest:
         self.build = build
         self.reviews = reviews
 
+    def get_review_info(self) -> str:
+        def get_submit_time(review: PullRequestReview):
+            return review.submittedAt
+        self.reviews.sort(key=get_submit_time)
+
+        reviewer_status = dict()
+        for review in self.reviews:
+            if review.state == "APPROVED" or review.state == "CHANGES_REQUESTED":
+                reviewer_status[review.author] = review.state
+
+        final_status = "IN_REVIEW"
+        for reviewer, status in reviewer_status.items():
+            if status == "CHANGES_REQUESTED":
+                return "CHANGES_REQUESTED"
+            final_status = status
+        return final_status
+
+
 def get_github_pull_request_info(branch_name: str, repo_user: str, repo_name: str) -> PullRequest:
     """Call the github api to get vital branch info"""
     try:
@@ -167,3 +205,20 @@ def get_github_pull_request_info(branch_name: str, repo_user: str, repo_name: st
             build=PullRequestBuild(),
             reviews=[],
         )
+
+def get_login() -> str:
+    """Get the login information for the current user"""
+    graphql_query_url = "{api_url}/graphql".format(api_url=GITHUB_API_URL)
+    headers = {'Authorization': 'bearer %s' % GITHUB_TOKEN}
+    json_data = {
+        "query": "query {viewer {login}}"
+    }
+    resp = requests.post(graphql_query_url, json=json_data, headers=headers)
+    resp_json = json.loads(resp.text)
+
+    if "errors" in resp_json:
+        logger.error(resp.text)
+        raise Exception("Could not determine login")
+
+    return resp_json['data']['viewer']['login']
+

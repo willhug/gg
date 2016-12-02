@@ -9,6 +9,7 @@ from gg.gateways.git.commit_info import get_commits
 from gg.gateways.github.pr_info import get_github_pull_request_info, PullRequestReview
 from gg.lib.branch_name import parse_branch_name, get_branches_for_feature, get_prefix_branch_name, get_all_features
 from gg.lib.log import logger
+from gg.lib.printable import Line, R, FB, W, B, G
 
 
 @GG.subcommand("log")
@@ -53,42 +54,17 @@ Log the current state of the world
         pr = get_github_pull_request_info(branch_name, REPO_USER, REPO_NAME)
         commits = get_commits(start_ref=get_prefix_branch_name(branch_name), end_ref=branch_name)
 
-        text = ""
-        if pr.core.html_url:
-            text += (colors.white | pr.core.html_url)
-        else:
-            text += "<no url>"
+        line = Line(
+            [
+                FB(W(pr.core.html_url), "<no url>"),
+                FB(R(pr.build.state), "<no build>"),
+                FB(B(pr.get_review_info()), "<no reviews>"),
+                G(branch_name),
+                FB(pr.core.title, commits[0].title if len(commits) > 0 else "<no commits>")
+            ],
+        )
 
-        text += "\t"
-
-        if pr.build.state:
-            text += (colors.red | pr.build.state)
-        else:
-            text += "<no build>"
-
-        text += "\t"
-
-        if pr.core.html_url:
-            text += (colors.lightblue | self.get_review_info(pr.reviews))
-        else:
-            text += "<no reviews>"
-
-        text += "\t"
-
-        text += (colors.green | branch_name)
-
-        text += "\t"
-
-        if pr.core.title:
-            text += pr.core.title
-        else:
-            if len(commits) > 0:
-                text += commits[0].title
-            else:
-                text += "<no commits>"
-
-        text += "\t"
-        logger.info(text)
+        logger.info(str(line))
 
     def get_review_info(self, reviews: List[PullRequestReview]) -> str:
         def get_submit_time(review: PullRequestReview):
