@@ -12,7 +12,7 @@ from gg.gateways.git.commit_info import get_commit
 from gg.gateways.git.fetch import git_fetch
 from gg.gateways.git.push import git_push
 from gg.gateways.github.merge import merge_pr
-from gg.gateways.github.pr_info import get_core_pulL_request, get_github_pull_request_info, PullRequestReview
+from gg.gateways.github.pr_info import get_core_pull_request, get_github_pull_request_info, PullRequestReview
 from gg.gateways.github.pull_request import create_pull_request
 from gg.gateways.github.update_pr import update_pr_base
 from gg.lib.branch_name import get_prefix_branch_name, get_next_branch
@@ -119,7 +119,7 @@ class GGLand(cli.Application):
     def has_existing_pr(self, branch_name: str) -> bool:
         """Return true of there's already a PR for this remote branch"""
         try:
-            get_core_pulL_request(branch_name, REPO_USER, REPO_NAME)
+            get_core_pull_request(branch_name, REPO_USER, REPO_NAME)
         except Exception:
             logger.info("PR doesn't exist")
             return False

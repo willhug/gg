@@ -40,10 +40,10 @@ class CorePullRequest:
          self.head_ref = base_ref
          self.author_login = author_login
 
-def get_core_pulL_request(branch_name: str, repo_user: str, repo_name: str) -> CorePullRequest:
+def get_core_pull_request(branch_name: str, repo_user: str, repo_name: str) -> CorePullRequest:
     """Send a request to github for the core pull request info and get the result"""
     filter = "?head={user}:{branch}".format(
-        repo=repo_name,
+        user=repo_user,
         branch=parse.quote(branch_name)
     )
     prs = get_core_prs(repo_user, repo_name, filter=filter)
@@ -190,7 +190,7 @@ class PullRequest:
 def get_github_pull_request_info(branch_name: str, repo_user: str, repo_name: str) -> PullRequest:
     """Call the github api to get vital branch info"""
     try:
-        core_pr = get_core_pulL_request(branch_name, repo_user, repo_name)
+        core_pr = get_core_pull_request(branch_name, repo_user, repo_name)
         pr_build = get_pull_request_build(branch_name, repo_user, repo_name)
         pr_reviews = get_pull_request_reviews(core_pr.number, repo_user, repo_name)
 
@@ -199,7 +199,7 @@ def get_github_pull_request_info(branch_name: str, repo_user: str, repo_name: st
             build=pr_build,
             reviews=pr_reviews,
         )
-    except Exception:
+    except Exception as e:
         return PullRequest(
             core=CorePullRequest(),
             build=PullRequestBuild(),

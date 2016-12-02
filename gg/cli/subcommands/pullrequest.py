@@ -5,7 +5,7 @@ from gg.gateways.git import REPO_USER, REPO_NAME, IS_GITHUB
 from gg.gateways.git.branch_checkout import git_checkout
 from gg.gateways.git.branch_info import get_current_branch
 from gg.gateways.git.push import git_push
-from gg.gateways.github.pr_info import get_core_pulL_request
+from gg.gateways.github.pr_info import get_core_pull_request
 from gg.gateways.github.pull_request import create_pull_request
 from gg.lib.branch_name import get_prefix_branch_name
 from gg.lib.log import logger
@@ -52,7 +52,7 @@ class GGPullRequest(cli.Application):
     def has_existing_pr(self, branch_name: str) -> bool:
         """Return true of there's already a PR for this remote branch"""
         try:
-            get_core_pulL_request(branch_name, REPO_USER, REPO_NAME)
+            get_core_pull_request(branch_name, REPO_USER, REPO_NAME)
         except Exception:
             logger.info("PR doesn't exist")
             return False
