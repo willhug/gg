@@ -1,8 +1,9 @@
-from typing import List
+from typing import List, Set
 
 from gg.gateways.git.branch_get import get_all_branches
 
 REALLY_BIG_INT = 9223372036854775807
+START_BRANCH_PREFIX = "_start_-"
 
 class Branch:
     feature = None # type: str
@@ -101,6 +102,17 @@ def get_branch_for_feature_part(feature_name: str, part: float) -> str:
             return branch_name
     return None
 
+def get_all_features() -> List[str]:
+    """Get all the features in the branch"""
+    features = []
+    for branch_name in get_all_branches():
+        if not branch_name.startswith(START_BRANCH_PREFIX):
+            continue
+        branch = parse_branch_name(branch_name[len(START_BRANCH_PREFIX):])
+        if branch.feature not in features:
+            features.append(branch.feature)
+    return features
+
 def parse_branch_name(branch_name: str) -> Branch:
     """Parses a branch name to get feature, part number, and change name"""
     branch_parts = branch_name.split("-part_", 1)
@@ -130,4 +142,4 @@ def get_prefix_branch_name(branch_name: str) -> str:
     :param branch_name: full branch name
     :return: prefix branch name
     """
-    return "_start_-%s" % branch_name
+    return "%s%s" % (START_BRANCH_PREFIX, branch_name)

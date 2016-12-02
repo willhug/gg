@@ -7,7 +7,7 @@ from gg.gateways.git import REPO_USER, REPO_NAME
 from gg.gateways.git.branch_info import get_current_branch
 from gg.gateways.git.commit_info import get_commits
 from gg.gateways.github.pr_info import get_github_pull_request_info, PullRequestReview
-from gg.lib.branch_name import parse_branch_name, get_branches_for_feature, get_prefix_branch_name
+from gg.lib.branch_name import parse_branch_name, get_branches_for_feature, get_prefix_branch_name, get_all_features
 from gg.lib.log import logger
 
 
@@ -16,7 +16,29 @@ class GGLog(cli.Application):
     DESCRIPTION = """
 Log the current state of the world
 """
+    all = cli.Flag(['-a', '--all'], help="log all the available gg branches (not just the current one)")
+
     def main(self, *args):
+        if self.all:
+            return self.print_all_features()
+
+        self.print_current_feature()
+
+    def print_all_features(self):
+        all_features = get_all_features()
+        for feature in all_features:
+            branch_names = get_branches_for_feature(feature)
+            title = "{feature_name} {num_branches}".format(
+                feature_name= (colors.green | feature),
+                num_branches= (colors.red | "<%d branches>" % len(branch_names)),
+            )
+            logger.info(title)
+
+            self.print_pr_info(branch_names)
+            logger.info("")
+
+
+    def print_current_feature(self):
         current_branch = get_current_branch()
         branch = parse_branch_name(branch_name=current_branch)
         branch_names = get_branches_for_feature(branch.feature)
