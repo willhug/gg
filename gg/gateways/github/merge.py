@@ -22,7 +22,7 @@ def merge_pr(pr: PullRequest, head_ref: str) -> bool:
         'Accept': 'application/vnd.github.polaris-preview'
     }
     json_data = {
-        'commit_title': pr.core.title + " (#" + pr.core.number + ")" or "",
+        'commit_title': pr.core.title + " (#" + str(pr.core.number) + ")" or "",
         'commit_message': pr.core.body or "",
         'sha': head_ref,
         'merge_method': 'squash',
