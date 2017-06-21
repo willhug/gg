@@ -2,9 +2,12 @@ from plumbum import FG
 
 from gg.gateways.git import git_cmd
 
-def git_cherry_pick(start_ref: str, end_ref: str):
+def git_cherry_pick(start_ref: str, end_ref: str, strategy: str):
     """Cherry pick a series of changes onto the current checkout"""
     cmd = git_cmd['cherry-pick', '%s..%s' % (start_ref, end_ref)]
+
+    if strategy:
+        cmd = cmd['--strategy-option', strategy]
 
     (cmd) & FG
 

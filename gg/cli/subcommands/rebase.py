@@ -20,6 +20,7 @@ class GGRebase(cli.Application):
 Rebase onto the next branch in the stack
 """
     onto = cli.SwitchAttr(['-o', '--onto'], str, help="git ref to rebase onto, defaults to the previous branch in the stack", default=None)
+    strategy = cli.SwitchAttr(['-s', '--strategy'], str, help="git strategy-option for cherry-pick", default=None)
 
     rebase_abort = cli.Flag(['-a', '--abort'], help="abort the rebase")
     rebase_continue = cli.Flag(['-c', '--continue'], help="continue the rebase")
@@ -86,7 +87,7 @@ Rebase onto the next branch in the stack
             return 1
 
         if self.onto is not None:
-            return self.rebase_onto(to_rebase_branch=current_branch, rebase_onto_branch=self.onto)
+            return self.rebase_onto(to_rebase_branch=current_branch, rebase_onto_branch=str(self.onto))
 
         previous_branch = get_previous_branch(current_branch)
         if previous_branch is None:
@@ -119,7 +120,7 @@ Rebase onto the next branch in the stack
             git_checkout(tmp_branch)
         else:
             logger.info("Cherry-picking changes onto new branch")
-            git_cherry_pick(start_ref=prefix_branch, end_ref=to_rebase_branch)
+            git_cherry_pick(start_ref=prefix_branch, end_ref=to_rebase_branch, strategy=(str(self.strategy)))
 
         self.finish_rebase(
             tmp_branch,
