@@ -2,7 +2,10 @@ from plumbum import local
 
 git_cmd = local['git']
 
-ORIGIN_URL = git_cmd['config', 'remote.origin.url']()
+try: 
+    ORIGIN_URL = git_cmd['config', 'remote.origin.url']()
+except:
+    ORIGIN_URL = "test@not.com:/test.git"
 
 IS_GITHUB = "github.com" in ORIGIN_URL
 
