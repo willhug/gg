@@ -14,6 +14,20 @@ class Branch:
         self.part = part
         self.change = change
 
+    def branch_name(self) -> str:
+        branch_name = self.feature
+
+        if self.part is None:
+            branch_name = branch_name + "-part_1.0"
+        else:
+            branch_name = branch_name + "-part_" + str(self.part)
+
+        if self.change is not None:
+            branch_name = branch_name + "-" + self.change
+
+        return branch_name
+
+
 def create_branch_name(feature: str, change: str, part: float) -> str:
     """Creates a branch name for the feature, change, and part number"""
     new_branch_name = feature
@@ -67,6 +81,10 @@ def get_first_branch_for_feature(feature_name: str) -> str:
 def get_branches_for_feature(feature: str) -> List[str]:
     """Get all the main branches for a feature"""
     return get_branches_in_range(feature, 0, REALLY_BIG_INT, reverseSort=True)
+
+def branch_exists(feature: str, part: str) -> bool:
+    branches = get_branches_in_range(feature, part, part + 0.01)
+    return len(branches) > 0
 
 def get_branches_in_range(feature: str, start: float, end: float, reverseSort: bool = False) -> List[str]:
     """Get the branches in a particular range (start <= branch < end) that start with feature_name"""
