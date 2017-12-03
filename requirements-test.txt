@@ -5,10 +5,13 @@
 #    pip-compile --output-file requirements-test.txt requirements-test.in
 #
 attrs==17.3.0             # via pytest
-funcsigs==1.0.2           # via pytest
+certifi==2017.11.5
+chardet==3.0.4
+idna==2.6
 pluggy==0.6.0             # via pytest
-plumbum==1.6.2
+plumbum==1.6.4
 py==1.5.2                 # via pytest
 pytest==3.3.0
-requests==2.12.1
+requests==2.18.4
 six==1.11.0               # via pytest
+urllib3==1.22

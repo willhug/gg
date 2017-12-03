@@ -11,11 +11,7 @@ from gg.lib.branch_name import (
 )
 from gg.lib.log import logger
 
-def checkout(
-    direction: Optional[bool] = None, # True is forward, False is backwards
-    part: Optional[float] = None,
-    feature: Optional[str] = None,
-) -> int:
+def checkout(direction = None, part = None, feature = None) -> int:
     if direction == True:
         current_branch = get_current_branch()
         if not current_branch:

@@ -1,9 +1,9 @@
 env:
-	virtualenv env
-	./env/bin/pip install pip-tools
+	virtualenv -py3 -p python3 env
+	./env/bin/pip3.6 install pip-tools
 
 install: env
-	./env/bin/pip install -r requirements-test.txt
+	./env/bin/pip3.6 install -r requirements-test.txt
 
 test:
 	./env/bin/pytest tests

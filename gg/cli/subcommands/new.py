@@ -62,7 +62,7 @@ Create new branches/features changes.  If feature/change/part are not passed in,
         return True
 
     def is_invalid_branch_piece(self, value):
-        return value is None or "-" in value
+        return value is not None and "-" in value
 
     def create_branch(self, feature: str, part: float, change: str) -> int:
         branch_name = create_branch_name(feature, change, part)
