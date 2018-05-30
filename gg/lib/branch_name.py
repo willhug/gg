@@ -3,7 +3,8 @@ from typing import List, Set
 from gg.gateways.git.branch_get import get_all_branches
 
 REALLY_BIG_INT = 9223372036854775807
-START_BRANCH_PREFIX = "_start_-"
+START_BRANCH_PREFIX = "wh/starts/"
+BRANCH_PREFIX = "wh/"
 
 class Branch:
     feature = None # type: str
@@ -18,14 +19,14 @@ class Branch:
         branch_name = self.feature
 
         if self.part is None:
-            branch_name = branch_name + "-part_1.0"
+            branch_name = branch_name + "/part-1.0"
         else:
-            branch_name = branch_name + "-part_" + str(self.part)
+            branch_name = branch_name + "/part-" + str(self.part)
 
         if self.change is not None:
-            branch_name = branch_name + "-" + self.change
+            branch_name = branch_name + "/" + self.change
 
-        return branch_name
+        return BRANCH_PREFIX + branch_name
 
 
 def create_branch_name(feature: str, change: str, part: float) -> str:
@@ -33,14 +34,14 @@ def create_branch_name(feature: str, change: str, part: float) -> str:
     new_branch_name = feature
 
     if part is None:
-        new_branch_name = new_branch_name + "-part_1.0"
+        new_branch_name = new_branch_name + "/part-1.0"
     else:
-        new_branch_name = new_branch_name + "-part_" + str(part)
+        new_branch_name = new_branch_name + "/part-" + str(part)
 
     if change is not None:
-        new_branch_name = new_branch_name + "-" + change
+        new_branch_name = new_branch_name + "/" + change
 
-    return new_branch_name
+    return BRANCH_PREFIX + new_branch_name
 
 def get_next_branch(branch_name: str) -> str:
     """Get the next branch/change in this feature"""
@@ -90,7 +91,7 @@ def get_branches_in_range(feature: str, start: float, end: float, reverseSort: b
     """Get the branches in a particular range (start <= branch < end) that start with feature_name"""
     branch_names = []
     for branch_name in get_all_branches():
-        if not branch_name.startswith(feature):
+        if not branch_name.startswith(BRANCH_PREFIX+feature):
             continue
 
         branch = parse_branch_name(branch_name)
@@ -133,17 +134,23 @@ def get_all_features() -> List[str]:
 
 def parse_branch_name(branch_name: str) -> Branch:
     """Parses a branch name to get feature, part number, and change name"""
-    branch_parts = branch_name.split("-part_", 1)
+    branch_ps = branch_name.split(BRANCH_PREFIX, 1)
+    if len(branch_ps) == 1:
+        branch_name = branch_ps[0]
+    else:
+        branch_name = branch_ps[1]
+
+    branch_parts = branch_name.split("/part-", 1)
     feature = branch_parts[0]
 
     # e.g. "branch_name"
     if len(branch_parts) == 1:
         return Branch(feature)
 
-    suffix_parts = branch_parts[1].split('-', 1)
+    suffix_parts = branch_parts[1].split('/', 1)
     part = float(suffix_parts[0])
 
-    # e.g. "branch_name-part#1.0"
+    # e.g. "branch_name/part-1.0"
     if len(suffix_parts) == 1:
         return Branch(feature, part)
 
@@ -160,4 +167,10 @@ def get_prefix_branch_name(branch_name: str) -> str:
     :param branch_name: full branch name
     :return: prefix branch name
     """
+    branch_ps = branch_name.split(BRANCH_PREFIX, 1)
+    if len(branch_ps) == 1:
+        branch_name = branch_ps[0]
+    else:
+        branch_name = branch_ps[1]
+
     return "%s%s" % (START_BRANCH_PREFIX, branch_name)
