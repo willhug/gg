@@ -5,7 +5,7 @@ from plumbum import cli
 from gg.cli.gg import GG
 from gg.gateways.git import REPO_USER, REPO_NAME
 from gg.gateways.github.pr_info import get_login, get_core_prs, \
-    get_pull_request_build, get_pull_request_reviews, PullRequest, PullRequestReview
+    get_pull_request_build, get_pull_request_reviews, PullRequest, PullRequestReview, get_core_prs_issues
 from gg.lib.log import logger
 from gg.lib.printable import Line, FB, W, G, R, B
 
@@ -19,7 +19,7 @@ Show the current open PRs/Diffs for the repo
     def main(self, *args):
         my_login = get_login()
 
-        prs = get_core_prs(REPO_USER, REPO_NAME)
+        prs = get_core_prs_issues(REPO_USER, REPO_NAME)
 
         other_prs = [pr for pr in prs if pr.author_login != my_login]
         for core_pr in other_prs:

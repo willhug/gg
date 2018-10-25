@@ -114,7 +114,7 @@ def get_branches_in_range(feature: str, start: float, end: float, reverseSort: b
 def get_branch_for_feature_part(feature_name: str, part: float) -> str:
     """Get a matching branch name for the provided feature and part (or return None)"""
     for branch_name in get_all_branches():
-        if not branch_name.startswith(feature_name):
+        if not branch_name.startswith(BRANCH_PREFIX + feature_name):
             continue
         branch = parse_branch_name(branch_name)
         if branch.feature == feature_name and int(branch.part * 1000) == int(part * 1000):

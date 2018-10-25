@@ -79,6 +79,35 @@ def get_core_prs(repo_user, repo_name, filter="") -> List[CorePullRequest]:
         ))
     return prs
 
+def get_core_prs_issues(repo_user, repo_name, filter="") -> List[CorePullRequest]:
+    """Get all the prs currently out there"""
+    filter = "?review-requested=willhug"
+    pr_query_url = "{api_url}/repos/{user}/{repo}/issues{filter}".format(
+        api_url=GITHUB_API_URL,
+        user=repo_user,
+        repo=repo_name,
+        filter=filter,
+    )
+    headers = {'Authorization': 'bearer %s' % GITHUB_TOKEN}
+    resp = requests.get(pr_query_url, headers=headers)
+
+    resp_body = json.loads(resp.text)
+    print(resp_body)
+    prs = []
+    for pr_body in resp_body:
+        prs.append(CorePullRequest(
+            number=pr_body['number'],
+            state=pr_body['state'],
+            title=pr_body['title'],
+            body=pr_body['body'],
+            html_url=pr_body['html_url'],
+            created_at=pr_body['created_at'],
+            base_ref=pr_body['base']['ref'],
+            head_ref=pr_body['head']['ref'],
+            author_login=pr_body['user']['login'],
+        ))
+    return prs
+
 
 class PullRequestBuild:
     state = None # type: str
