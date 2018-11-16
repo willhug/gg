@@ -5,7 +5,7 @@ from gg.cli.gg import GG
 from gg.gateways.git import REPO_USER, REPO_NAME, IS_GITHUB
 from gg.gateways.git.branch_checkout import git_checkout
 from gg.gateways.git.branch_info import get_current_branch
-from gg.gateways.git.push import git_push
+from gg.gateways.git.push import git_push, git_push_multi
 from gg.gateways.github.pr_info import get_core_pull_request
 from gg.gateways.github.pull_request import create_pull_request
 from gg.lib.branch_name import get_previous_branch, get_prefix_branch_name
@@ -15,6 +15,8 @@ from gg.lib.log import logger
 @GG.subcommand("push")
 class GGPush(cli.Application):
     DESCRIPTION = "Push the current branch to remote"
+    
+    start = cli.Flag(['-s', '--start'], help="push the start branch as well")
 
     def main(self, *args):
         if self.is_github():
@@ -33,5 +35,8 @@ class GGPush(cli.Application):
 
         if has_existing_pr(current_branch):
             git_checkout(current_branch)
-            git_push(current_branch, force=True)
+            if self.start:
+                git_push_multi([current_branch, get_prefix_branch_name(current_branch)], force=True)
+            else:
+                git_push(current_branch, force=True)
         return
