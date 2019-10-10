@@ -9,7 +9,10 @@ except:
 
 IS_GITHUB = "github.com" in ORIGIN_URL
 
-path = ORIGIN_URL.split(":")[-1]
+if ORIGIN_URL.startswith("ssh://git@github.com/"):
+    path = ORIGIN_URL[21:]
+else:
+    path = ORIGIN_URL.split(":")[-1]
 
 REPO_USER = path.split("/")[0].strip()
 repo = path.split("/")[1].strip()
