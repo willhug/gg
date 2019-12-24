@@ -42,7 +42,7 @@ class CorePullRequest:
 
 def get_core_pull_request(branch_name: str, repo_user: str, repo_name: str) -> CorePullRequest:
     """Send a request to github for the core pull request info and get the result"""
-    filter = "?head={user}:{branch}".format(
+    filter = "?head={user}:{branch}&state=all".format(
         user=repo_user,
         branch=parse.quote(branch_name)
     )
@@ -92,7 +92,6 @@ def get_core_prs_issues(repo_user, repo_name, filter="") -> List[CorePullRequest
     resp = requests.get(pr_query_url, headers=headers)
 
     resp_body = json.loads(resp.text)
-    print(resp_body)
     prs = []
     for pr_body in resp_body:
         prs.append(CorePullRequest(
@@ -134,6 +133,10 @@ def get_pull_request_build(branch_name: str, repo_user: str, repo_name: str) -> 
 
     status_body = json.loads(resp.text)
 
+    if "state" not in status_body:
+        return PullRequestBuild(
+            state="Unknown",
+        )
     return PullRequestBuild(
         state=status_body['state'],
         total_count=status_body['total_count'],

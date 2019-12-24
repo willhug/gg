@@ -58,6 +58,7 @@ Log the current state of the world
             [
                 FB(W(pr.core.html_url), "<no url>"),
                 FB(R(pr.build.state), "<no build>"),
+                FB(B(pr.core.state), "<no pr state>"),
                 FB(B(pr.get_review_info()), "<no reviews>"),
                 G(branch_name),
                 FB(pr.core.title, commits[0].title if len(commits) > 0 else "<no commits>")
