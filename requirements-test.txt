@@ -5,13 +5,13 @@
 #    pip-compile --output-file requirements-test.txt requirements-test.in
 #
 attrs==17.3.0             # via pytest
-certifi==2017.11.5
-chardet==3.0.4
-idna==2.6
+certifi==2017.11.5        # via -r requirements.txt, requests
+chardet==3.0.4            # via -r requirements.txt, requests
+idna==2.6                 # via -r requirements.txt, requests
 pluggy==0.6.0             # via pytest
-plumbum==1.6.4
+plumbum==1.6.4            # via -r requirements.txt
 py==1.5.2                 # via pytest
-pytest==3.3.0
-requests==2.18.4
+pytest==3.3.0             # via -r requirements-test.in
+requests==2.20.0          # via -r requirements.txt
 six==1.11.0               # via pytest
-urllib3==1.22
+urllib3==1.22             # via -r requirements.txt, requests
