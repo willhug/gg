@@ -2,4 +2,5 @@
 *.egg*
 .cache
 env/*
+TODO.txt
 go/pkg/*
