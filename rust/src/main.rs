@@ -1,4 +1,4 @@
-use clap::App;
+use clap::{App, Arg};
 use std::process::Command;
 
 
@@ -9,7 +9,12 @@ fn main() {
         .about("A command line tool for organizing tasks and git commits/PRs")
         .subcommand(App::new("new")
             .about("this is a test")
-            .arg("-n, --name 'branch name")
+            .arg(Arg::new("name")
+                .short('n')
+                .value_name("NAME")
+                .about("sets the name for a branch")
+                .takes_value(true)
+            )
         )
         .get_matches();
 
