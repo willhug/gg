@@ -1,7 +1,7 @@
+#[path = "pr.rs"] mod pr;
 use clap::{App, Arg};
 use std::process::Command;
 use std::str::from_utf8;
-use octocrab::Octocrab;
 
 #[tokio::main]
 async fn main() ->  Result<(), Box<dyn std::error::Error>> {
@@ -42,7 +42,7 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
     if let Some(ref _matches) = matches.subcommand_matches("pr") {
         let branch = current_branch();
         push(branch.clone(), true);
-        create_pr(branch).await.expect("error creating PR");
+        pr::create_pr(branch).await.expect("error creating PR");
     }
     Ok(())
 }
@@ -86,21 +86,4 @@ fn push(full_branch: String, force: bool) {
      .arg(full_branch)
      .output()
      .expect("failed to push branch");
-}
-
-
-async fn create_pr(full_branch: String) -> octocrab::Result<()> {
-    let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required");
-    let octo = Octocrab::builder().personal_token(token).build()?;
-
-    // TODO add real info
-    octo.pulls("willhug", "gg")
-        .create("test test test", full_branch, "main")
-        .body("this is a test")
-        .send()
-        .await?;
-
-    println!("RAN THE PULL");
-
-    Ok(())
 }
