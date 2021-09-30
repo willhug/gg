@@ -1,4 +1,5 @@
 #[path = "pr.rs"] mod pr;
+#[path = "config.rs"] mod config;
 use clap::{App, Arg};
 use std::process::Command;
 use std::str::from_utf8;
@@ -28,6 +29,9 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         .subcommand(App::new("pr")
             .about("creates a PR for the current branch")
         )
+        .subcommand(App::new("fetch")
+            .about("fetches the current master/main branch")
+        )
         .get_matches();
 
     if let Some(ref matches) = matches.subcommand_matches("new") {
@@ -43,6 +47,9 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         let branch = current_branch();
         push(branch.clone(), true);
         pr::create_pr(branch).await.expect("error creating PR");
+    }
+    if let Some(ref _matches) = matches.subcommand_matches("fetch") {
+        fetch_main()
     }
     Ok(())
 }
@@ -86,4 +93,15 @@ fn push(full_branch: String, force: bool) {
      .arg(full_branch)
      .output()
      .expect("failed to push branch");
+}
+
+fn fetch_main() {
+    let cfg = config::get_config();
+    Command::new("git")
+            .arg("fetch")
+            .arg("-p")
+            .arg("origin")
+            .arg(cfg.repo_main_branch)
+            .output()
+            .expect("failed to fetch main branch");
 }

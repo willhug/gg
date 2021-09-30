@@ -321,6 +321,8 @@ dependencies = [
  "clap",
  "futures",
  "octocrab",
+ "serde",
+ "serde_json",
  "tempfile",
  "tokio",
 ]
