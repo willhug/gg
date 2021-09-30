@@ -26,7 +26,7 @@ fn get_title_and_body(branch: String) -> (String, String) {
     (title.to_string(), body.to_string())
 }
 
-fn get_git_log_for_branch(branch: String) -> String {
+fn get_git_log_for_branch(_branch: String) -> String {
     let out = match Command::new("git")
             .arg("log")
             .arg("--pretty=\"%s%+b\"")
