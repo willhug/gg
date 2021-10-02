@@ -9,13 +9,14 @@ pub async fn create_pr(full_branch: String) -> octocrab::Result<()> {
 
     let (title, body) = get_title_and_body(full_branch.clone());
     // TODO add real info
-    octo.pulls("willhug", "gg")
+    let res = octo.pulls("willhug", "gg")
         .create(title, full_branch, "main")
         .body(body)
         .send()
         .await?;
 
-    println!("RAN THE PULL");
+
+    println!("Created PR: {}", res.url);
 
     Ok(())
 }
@@ -40,4 +41,24 @@ fn get_git_log_for_branch(_branch: String) -> String {
         .expect("msg")
         .trim_end_matches(x);
     return result.to_string()
+}
+
+pub async fn pr_statuses(full_branch: String) -> octocrab::Result<()> {
+    let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required");
+    let octo = Octocrab::builder().personal_token(token).build()?;
+
+    // TODO add real info
+    let pulls = octo.pulls("willhug", "gg")
+        .list()
+        .head(format!("gg:{}", full_branch))
+        .per_page(100)
+        .send()
+        .await?;
+
+
+    for l in pulls {
+        println!("BEHOLD THE PULL! {}", l.title);
+    }
+
+    Ok(())
 }
