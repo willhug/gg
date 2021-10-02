@@ -32,6 +32,9 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         .subcommand(App::new("fetch")
             .about("fetches the current master/main branch")
         )
+        .subcommand(App::new("status")
+            .about("fetches the current status of the remote branch.")
+        )
         .get_matches();
 
     if let Some(ref matches) = matches.subcommand_matches("new") {
@@ -47,6 +50,10 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         let branch = current_branch();
         push(branch.clone(), true);
         pr::create_pr(branch).await.expect("error creating PR");
+    }
+    if let Some(ref _matches) = matches.subcommand_matches("status") {
+        let branch = current_branch();
+        pr::pr_statuses(branch).await.expect("error seeing PR");
     }
     if let Some(ref _matches) = matches.subcommand_matches("fetch") {
         fetch_main()
