@@ -35,6 +35,9 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         .subcommand(App::new("status")
             .about("fetches the current status of the remote branch.")
         )
+        .subcommand(App::new("land")
+            .about("lands the current branch (if possible).")
+        )
         .get_matches();
 
     if let Some(ref matches) = matches.subcommand_matches("new") {
@@ -57,6 +60,10 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
     }
     if let Some(ref _matches) = matches.subcommand_matches("fetch") {
         fetch_main()
+    }
+    if let Some(ref _matches) = matches.subcommand_matches("land") {
+        let branch = current_branch();
+        pr::land_pr(branch).await.expect("error landing PR");
     }
     Ok(())
 }

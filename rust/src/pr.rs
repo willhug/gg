@@ -45,10 +45,16 @@ fn get_git_log_for_branch(_branch: String) -> String {
 }
 
 pub async fn pr_statuses(full_branch: String) -> octocrab::Result<()> {
+    let pr = pr_for_branch(full_branch).await?;
+    print_pull(pr);
+    Ok(())
+}
+
+async fn pr_for_branch(branch: String) -> octocrab::Result<PullRequest> {
     let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required");
     let octo = Octocrab::builder().personal_token(token).build()?;
 
-    let hub_head = format!("willhug:{}", full_branch);
+    let hub_head = format!("willhug:{}", branch);
     let pulls = octo.pulls("willhug", "gg")
         .list()
         .head(hub_head)
@@ -56,11 +62,10 @@ pub async fn pr_statuses(full_branch: String) -> octocrab::Result<()> {
         .send()
         .await?;
 
-    for l in pulls {
-        print_pull(l);
+    if pulls.items.len() == 1 {
+        return Ok(pulls.items.first().unwrap().clone())
     }
-
-    Ok(())
+    panic!("no errors!")
 }
 
 fn print_pull(pull: PullRequest) {
@@ -70,4 +75,28 @@ fn print_pull(pull: PullRequest) {
         _ => "Unknown",
     };
     println!("{}: {}", state, pull.title)
+}
+
+pub async fn land_pr(full_branch: String) -> octocrab::Result<()> {
+    let pr = pr_for_branch(full_branch).await?;
+
+    let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required");
+    let octo = Octocrab::builder().personal_token(token).build()?;
+
+    // TODO ADD TESTS CHECK
+
+    let res = octo.pulls("willhug", "gg")
+        .merge(pr.number)
+        .method(octocrab::params::pulls::MergeMethod::Rebase)
+        .send()
+        .await?;
+
+    println!("Merge was {}",
+        if res.merged {
+            "good"
+        } else {
+            "bad"
+        }
+    );
+    Ok(())
 }
