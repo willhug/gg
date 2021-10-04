@@ -38,6 +38,13 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         .subcommand(App::new("land")
             .about("lands the current branch (if possible).")
         )
+        .subcommand(App::new("rebase")
+            .about("rebase the current branch on master (if possible).")
+            .arg(Arg::new("interactive")
+                .short('i')
+                .about("do interactive rebase")
+            )
+        )
         .get_matches();
 
     if let Some(ref matches) = matches.subcommand_matches("new") {
@@ -64,6 +71,10 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
     if let Some(ref _matches) = matches.subcommand_matches("land") {
         let branch = current_branch();
         pr::land_pr(branch).await.expect("error landing PR");
+    }
+    if let Some(ref matches) = matches.subcommand_matches("rebase") {
+        let interactive = matches.is_present("interactive");
+        rebase(interactive);
     }
     Ok(())
 }
@@ -118,4 +129,17 @@ fn fetch_main() {
             .arg(cfg.repo_main_branch)
             .output()
             .expect("failed to fetch main branch");
+}
+
+fn rebase(interactive: bool) {
+    let cfg = config::get_config();
+    let mut com = Command::new("git");
+    let c = com.arg("rebase");
+    if interactive {
+        c.arg("-i");
+    }
+
+    c.arg(format!("origin/{}", cfg.repo_main_branch))
+            .output()
+            .expect("failed to rebase");
 }
