@@ -1,5 +1,6 @@
 #[path = "pr.rs"] mod pr;
 #[path = "config.rs"] mod config;
+#[path = "issues.rs"] mod issues;
 use clap::{App, Arg};
 use std::process::Command;
 use std::str::from_utf8;
@@ -45,6 +46,21 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
                 .about("do interactive rebase")
             )
         )
+        .subcommand(App::new("issue")
+            .about("handles issues")
+            .subcommand(App::new("create")
+                .about("creates a new issue")
+                .arg(Arg::new("title")
+                    .short('t')
+                    .value_name("TITLE")
+                    .about("sets the title for an issue")
+                    .takes_value(true)
+                )
+            )
+            .subcommand(App::new("list")
+                .about("lists all issues")
+            )
+        )
         .get_matches();
 
     if let Some(ref matches) = matches.subcommand_matches("new") {
@@ -75,6 +91,16 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
     if let Some(ref matches) = matches.subcommand_matches("rebase") {
         let interactive = matches.is_present("interactive");
         rebase(interactive);
+    }
+    if let Some(ref matches) = matches.subcommand_matches("issue") {
+        if let Some(ref matches) = matches.subcommand_matches("create") {
+            if let Some(name) = matches.value_of("title") {
+                issues::create_issue(name, "").await.expect("error creating");
+            }
+        }
+        if let Some(ref _matches) = matches.subcommand_matches("list") {
+            issues::list_issues().await.expect("error creating");
+        }
     }
     Ok(())
 }
