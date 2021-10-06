@@ -1,3 +1,4 @@
+#[path = "color.rs"] mod color;
 #[path = "file.rs"] mod file;
 use octocrab::Octocrab;
 use octocrab::models::IssueState;
@@ -70,11 +71,11 @@ async fn pr_for_branch(branch: String) -> octocrab::Result<PullRequest> {
 
 fn print_pull(pull: PullRequest) {
     let state = match pull.state {
-        IssueState::Closed => "Closed",
-        IssueState::Open => "Open",
-        _ => "Unknown",
+        IssueState::Closed => color::red("Closed"),
+        IssueState::Open => color::green("Open"),
+        _ => color::red("Unknown"),
     };
-    println!("{}: {}", state, pull.title)
+    println!("{}: {}", color::bold(state), pull.title)
 }
 
 pub async fn land_pr(full_branch: String) -> octocrab::Result<()> {
