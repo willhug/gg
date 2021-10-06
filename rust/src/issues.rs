@@ -1,3 +1,4 @@
+#[path = "color.rs"] mod color;
 use octocrab::Octocrab;
 
 pub async fn create_issue(title: &str, body: &str) -> octocrab::Result<()> {
@@ -11,7 +12,7 @@ pub async fn create_issue(title: &str, body: &str) -> octocrab::Result<()> {
         .await?;
 
 
-    println!("Created Issue: {}", res.html_url);
+    println!("Created Issue: {}", color::bold(color::green(res.html_url.to_string())));
 
     Ok(())
 }
@@ -29,7 +30,7 @@ pub async fn list_issues() -> octocrab::Result<()> {
 
 
     for issue in res {
-        println!("{} : {}", issue.html_url, issue.title);
+        println!("{} : {}", color::blue(issue.html_url.to_string()), color::bold(issue.title));
     }
 
     Ok(())
