@@ -32,7 +32,7 @@ fn get_title_and_body(branch: String) -> (String, String) {
 fn get_git_log_for_branch(_branch: String) -> String {
     let out = match Command::new("git")
             .arg("log")
-            .arg("--pretty=\"%s%+b\"")
+            .arg("--pretty=%s%+b")
             .arg("origin/main..HEAD")
             .output() {
                 Ok(output) => output,
