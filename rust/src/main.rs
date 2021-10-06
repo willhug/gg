@@ -1,3 +1,4 @@
+#[path = "color.rs"] mod color;
 #[path = "pr.rs"] mod pr;
 #[path = "config.rs"] mod config;
 #[path = "issues.rs"] mod issues;
@@ -140,10 +141,16 @@ fn push(full_branch: String, force: bool) {
         c.arg("-f");
     }
 
-    c.arg("origin")
+    let res = c.arg("origin")
      .arg(full_branch)
-     .output()
-     .expect("failed to push branch");
+     .status()
+     .expect("did not get successful response.");
+
+     if res.success() {
+         println!("{}", color::bold(color::green("Success!")));
+     } else {
+         println!("{}", color::bold(color::red("Error pushing! (try '-f')")))
+     }
 }
 
 fn fetch_main() {
