@@ -1,7 +1,8 @@
-#[path = "color.rs"] mod color;
-#[path = "pr.rs"] mod pr;
-#[path = "config.rs"] mod config;
-#[path = "issues.rs"] mod issues;
+mod color;
+mod pr;
+mod config;
+mod issues;
+mod file;
 use clap::{App, Arg};
 use std::process::Command;
 use std::str::from_utf8;

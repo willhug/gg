@@ -1,4 +1,4 @@
-#[path = "color.rs"] mod color;
+use crate::color;
 use octocrab::Octocrab;
 
 pub async fn create_issue(title: &str, body: &str) -> octocrab::Result<()> {
