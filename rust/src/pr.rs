@@ -1,5 +1,5 @@
-#[path = "color.rs"] mod color;
-#[path = "file.rs"] mod file;
+use crate::color;
+use crate::file;
 use octocrab::Octocrab;
 use octocrab::models::IssueState;
 use octocrab::models::pulls::PullRequest;
