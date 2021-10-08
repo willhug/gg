@@ -3,106 +3,98 @@ mod pr;
 mod config;
 mod issues;
 mod file;
-use clap::{App, Arg};
 use std::process::Command;
 use std::str::from_utf8;
+use structopt::{StructOpt};
+
+#[derive(StructOpt)]
+#[structopt(name="gg", about="A command line tool for organizing tasks and git commits/PRs")]
+struct GG {
+    #[structopt(subcommand)]
+    cmd: Cmd
+}
+
+#[derive(StructOpt, Debug)]
+#[structopt(about = "A command line tool for organizing tasks and git commits/PRs")]
+enum Cmd {
+    #[structopt(about = "Create a new git branch")]
+    New {
+        #[structopt(short,long)]
+        name: String
+    },
+    #[structopt(about = "Push the current branch to origin")]
+    Push {
+        #[structopt(short,long)]
+        force: bool
+    },
+    #[structopt(about = "Create a github pr for the current branch")]
+    Pr {},
+    #[structopt(about = "Fetch the current master/main.")]
+    Fetch {},
+    #[structopt(about = "Show the status of the current branch's PR")]
+    Status {},
+    #[structopt(about = "Land the current PR")]
+    Land {},
+    #[structopt(about = "Rebase the current branch onto master/main")]
+    Rebase {
+        #[structopt(short,long)]
+        interactive: bool
+    },
+    Issue(IssueSubcommand)
+}
+
+#[derive(StructOpt, Debug)]
+#[structopt(about = "Commands for managing github issues")]
+enum IssueSubcommand {
+    #[structopt(about = "Create a new github issue")]
+    Create {
+        #[structopt(short,long)]
+        title: String
+    },
+    #[structopt(about = "List open github issues")]
+    List {}
+}
 
 #[tokio::main]
 async fn main() ->  Result<(), Box<dyn std::error::Error>> {
-    let matches = App::new("gg")
-        .version("0.1")
-        .author("Will H")
-        .about("A command line tool for organizing tasks and git commits/PRs")
-        .subcommand(App::new("new")
-            .about("creates a new branch")
-            .arg(Arg::new("name")
-                .short('n')
-                .value_name("NAME")
-                .about("sets the name for a branch")
-                .takes_value(true)
-            )
-        )
-        .subcommand(App::new("push")
-            .arg(Arg::new("force")
-                .short('f')
-                .about("force the push")
-            )
-            .about("pushes the current branch to master")
-        )
-        .subcommand(App::new("pr")
-            .about("creates a PR for the current branch")
-        )
-        .subcommand(App::new("fetch")
-            .about("fetches the current master/main branch")
-        )
-        .subcommand(App::new("status")
-            .about("fetches the current status of the remote branch.")
-        )
-        .subcommand(App::new("land")
-            .about("lands the current branch (if possible).")
-        )
-        .subcommand(App::new("rebase")
-            .about("rebase the current branch on master (if possible).")
-            .arg(Arg::new("interactive")
-                .short('i')
-                .about("do interactive rebase")
-            )
-        )
-        .subcommand(App::new("issue")
-            .about("handles issues")
-            .subcommand(App::new("create")
-                .about("creates a new issue")
-                .arg(Arg::new("title")
-                    .short('t')
-                    .value_name("TITLE")
-                    .about("sets the title for an issue")
-                    .takes_value(true)
-                )
-            )
-            .subcommand(App::new("list")
-                .about("lists all issues")
-            )
-        )
-        .get_matches();
-
-    if let Some(ref matches) = matches.subcommand_matches("new") {
-        if let Some(name) = matches.value_of("name") {
-            new(name)
-        }
-    }
-    if let Some(ref matches) = matches.subcommand_matches("push") {
-        let force = matches.is_present("force");
-        push(current_branch(), force)
-    }
-    if let Some(ref _matches) = matches.subcommand_matches("pr") {
-        let branch = current_branch();
-        push(branch.clone(), true);
-        pr::create_pr(branch).await.expect("error creating PR");
-    }
-    if let Some(ref _matches) = matches.subcommand_matches("status") {
-        let branch = current_branch();
-        pr::pr_statuses(branch).await.expect("error seeing PR");
-    }
-    if let Some(ref _matches) = matches.subcommand_matches("fetch") {
-        fetch_main()
-    }
-    if let Some(ref _matches) = matches.subcommand_matches("land") {
-        let branch = current_branch();
-        pr::land_pr(branch).await.expect("error landing PR");
-    }
-    if let Some(ref matches) = matches.subcommand_matches("rebase") {
-        let interactive = matches.is_present("interactive");
-        rebase(interactive);
-    }
-    if let Some(ref matches) = matches.subcommand_matches("issue") {
-        if let Some(ref matches) = matches.subcommand_matches("create") {
-            if let Some(name) = matches.value_of("title") {
-                issues::create_issue(name, "").await.expect("error creating");
+    let opt = GG::from_args();
+    match opt.cmd {
+        Cmd::New { name } => {
+            new(name.as_str());
+        },
+        Cmd::Push { force} => {
+            push(current_branch(), force);
+        },
+        Cmd::Pr {} => {
+            let branch = current_branch();
+            push(branch.clone(), true);
+            pr::create_pr(branch).await.expect("error creating PR");
+        },
+        Cmd::Fetch {} => {
+            fetch_main();
+        },
+        Cmd::Status {} => {
+            let branch = current_branch();
+            pr::pr_statuses(branch).await.expect("error seeing PR");
+        },
+        Cmd::Land {} => {
+            let branch = current_branch();
+            pr::land_pr(branch).await.expect("error landing PR");
+        },
+        Cmd::Rebase { interactive } => {
+            rebase(interactive);
+        },
+        Cmd::Issue(issue) => {
+            match issue {
+                IssueSubcommand::Create { title} => {
+                    issues::create_issue(title.as_str(), "").await.expect("error creating");
+                }
+                IssueSubcommand::List {} => {
+                    issues::list_issues().await.expect("error creating");
+                }
             }
         }
-        if let Some(ref _matches) = matches.subcommand_matches("list") {
-            issues::list_issues().await.expect("error creating");
-        }
+
     }
     Ok(())
 }
