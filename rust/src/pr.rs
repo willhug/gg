@@ -99,5 +99,8 @@ pub async fn land_pr(full_branch: String) -> octocrab::Result<()> {
             "bad"
         }
     );
+    if !res.merged {
+        panic!("error merging time");
+    }
     Ok(())
 }
