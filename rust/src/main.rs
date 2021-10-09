@@ -79,7 +79,10 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         },
         Cmd::Land {} => {
             let branch = current_branch();
-            pr::land_pr(branch).await.expect("error landing PR");
+            pr::land_pr(branch.clone()).await.expect("error landing PR");
+            fetch_main();
+            checkout_main();
+            delete_branch(branch);
         },
         Cmd::Rebase { interactive } => {
             rebase(interactive);
@@ -168,4 +171,22 @@ fn rebase(interactive: bool) {
     c.arg(format!("origin/{}", cfg.repo_main_branch))
             .output()
             .expect("failed to rebase");
+}
+
+fn checkout_main() {
+    let cfg = config::get_config();
+    Command::new("git")
+        .arg("checkout")
+        .arg(format!("origin/{}", cfg.repo_main_branch))
+        .output()
+        .expect("failed to checkout main");
+}
+
+fn delete_branch(branch: String) {
+    Command::new("git")
+        .arg("branch")
+        .arg("-D")
+        .arg(branch)
+        .output()
+        .expect("failed to delete branch");
 }
