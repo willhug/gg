@@ -1,5 +1,5 @@
 use crate::color;
-use octocrab::Octocrab;
+use octocrab::{Octocrab, models::issues::Issue};
 
 pub async fn create_issue(title: &str, body: &str) -> octocrab::Result<()> {
     let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required");
@@ -18,6 +18,16 @@ pub async fn create_issue(title: &str, body: &str) -> octocrab::Result<()> {
 }
 
 pub async fn list_issues() -> octocrab::Result<()> {
+    let res = get_issues().await.unwrap();
+
+    for issue in res {
+        println!("{} : {}", color::blue(issue.html_url.to_string()), color::bold(issue.title));
+    }
+
+    Ok(())
+}
+
+pub async fn get_issues() -> octocrab::Result<Vec<Issue>> {
     let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required");
     let octo = Octocrab::builder().personal_token(token).build()?;
 
@@ -28,10 +38,7 @@ pub async fn list_issues() -> octocrab::Result<()> {
         .send()
         .await?;
 
+    let list: Vec<Issue> = res.into_iter().collect();
 
-    for issue in res {
-        println!("{} : {}", color::blue(issue.html_url.to_string()), color::bold(issue.title));
-    }
-
-    Ok(())
+    Ok(list)
 }
