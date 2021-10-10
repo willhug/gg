@@ -3,6 +3,7 @@ mod pr;
 mod config;
 mod issues;
 mod file;
+mod terminal;
 use std::process::Command;
 use std::str::from_utf8;
 use structopt::{StructOpt};
@@ -40,7 +41,8 @@ enum Cmd {
         #[structopt(short,long)]
         interactive: bool
     },
-    Issue(IssueSubcommand)
+    Issue(IssueSubcommand),
+    Terminal {},
 }
 
 #[derive(StructOpt, Debug)]
@@ -96,8 +98,10 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
                     issues::list_issues().await.expect("error creating");
                 }
             }
+        },
+        Cmd::Terminal {} => {
+            terminal::start_terminal().await.unwrap();
         }
-
     }
     Ok(())
 }
