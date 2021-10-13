@@ -54,7 +54,7 @@ enum IssueSubcommand {
         title: String
     },
     #[structopt(about = "List open github issues")]
-    List {}
+    List {},
 }
 
 #[tokio::main]
