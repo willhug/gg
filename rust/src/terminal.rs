@@ -7,7 +7,7 @@ use termion::input::TermRead;
 use tui::widgets::{Block, Borders, List};
 use tui::layout::{Layout, Constraint, Direction};
 
-use crate::issues::get_issues;
+use crate::issues::{self, get_issues};
 
 pub enum Event<I> {
     Input(I),
@@ -48,7 +48,7 @@ impl Events {
                     eprintln!("{}", err);
                     break;
                 }
-                thread::sleep(Duration::from_millis(250));
+                thread::sleep(Duration::from_millis(5000));
             })
         };
         Events {
@@ -65,7 +65,7 @@ impl Events {
 
 struct App {
     issues: Vec<octocrab::models::issues::Issue>,
-    selection: u64,
+    selection: usize,
     // TODO
 }
 
@@ -78,14 +78,27 @@ impl App {
     }
  
     fn down(&mut self) {
-        self.selection+=1;
+        if self.selection < self.issues.len() - 1 {
+            self.selection+=1;
+        }
     }
 
     fn up(&mut self) {
-        self.selection-=1;
+        if self.selection > 0 {
+            self.selection-=1;
+        }
     }
 
-    fn update(&mut self) {
+    async fn update(&mut self) {
+        let issues = get_issues().await.unwrap();
+        self.issues = issues;
+        if self.selection >= self.issues.len() {
+            self.selection = self.issues.len() - 1
+        }
+    }
+
+    fn get_selected(&mut self) -> &Issue {
+        self.issues.get(self.selection).unwrap()
     }
 }
 
@@ -111,7 +124,7 @@ pub async fn start_terminal() -> Result<(), Box<dyn Error>> {
                 .split(f.size());
             let items: Vec<ListItem> = app.issues.iter().enumerate().map(|(idx, i)| {
                 let mut style = Style::default();
-                if idx as u64 == app.selection {
+                if idx == app.selection {
                     style = Style::default().bg(Color::LightGreen);
                 }
                 ListItem::new(Spans::from(vec![
@@ -137,13 +150,18 @@ pub async fn start_terminal() -> Result<(), Box<dyn Error>> {
                     Key::Char('k') | Key::Up => {
                         app.up();
                     },
+                    Key::Char('d') => {
+                        let i = app.get_selected();
+                        issues::close_issue(i.number).await?;
+                        app.update().await;
+                    },
                     _ => {
                         println!("Unknown input!");
                     }
                 }
             }
             Event::Tick => {
-                app.update();
+                app.update().await;
             }
         }
     }
