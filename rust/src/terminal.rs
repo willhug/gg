@@ -1,6 +1,6 @@
 use std::{error::Error, io, sync::mpsc, thread, time::Duration};
 use octocrab::models::issues::Issue;
-use tui::{Terminal, style::{Color, Style}, text::{Span, Spans}, widgets::ListItem};
+use tui::{Terminal, style::{Color, Style}, text::{Span, Spans, Text}, widgets::{ListItem, Paragraph}};
 use tui::backend::TermionBackend;
 use termion::{event::Key, raw::IntoRawMode, screen::AlternateScreen};
 use termion::input::TermRead;
@@ -63,17 +63,26 @@ impl Events {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum InputState {
+    Normal,
+    Create,
+}
+
 struct App {
     issues: Vec<octocrab::models::issues::Issue>,
     selection: usize,
-    // TODO
+    input_state: InputState,
+    buffered_issue_title: String,
 }
 
 impl App {
-    fn new(issues: Vec<Issue>) -> App {
+    async fn new() -> App {
         App {
-            issues: issues,
+            issues: get_issues().await.unwrap(),
             selection: 0,
+            input_state: InputState::Normal,
+            buffered_issue_title: String::new(),
         }
     }
  
@@ -100,6 +109,13 @@ impl App {
     fn get_selected(&mut self) -> &Issue {
         self.issues.get(self.selection).unwrap()
     }
+
+    fn set_input_state(&mut self, state: InputState) {
+        self.input_state = state;
+        if state == InputState::Normal {
+            self.buffered_issue_title.clear()
+        }
+    }
 }
 
 pub async fn start_terminal() -> Result<(), Box<dyn Error>> {
@@ -108,8 +124,7 @@ pub async fn start_terminal() -> Result<(), Box<dyn Error>> {
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     let events = Events::new();
-    let issues = get_issues().await.unwrap();
-    let mut app = App::new(issues);
+    let mut app = App::new().await;
 
 
     loop {
@@ -136,28 +151,55 @@ pub async fn start_terminal() -> Result<(), Box<dyn Error>> {
             let block = List::new(items)
                 .block(Block::default().borders(Borders::ALL).title("ISSUES"));
             f.render_widget(block, chunks[0]);
+            if app.input_state == InputState::Create {
+                let input = Paragraph::new(Text::from(Spans::from(app.buffered_issue_title.clone())))
+                    .block(Block::default().borders(Borders::ALL).title("Create New Issue"));
+                f.render_widget(input, chunks[1]);
+            }
         })?;
 
         match events.next()? {
             Event::Input(input) => {
-                match input {
-                    Key::Char('q') => {
-                        break;
+                match app.input_state {
+                    InputState::Normal => match input {
+                        Key::Char('q') => {
+                            break;
+                        },
+                        Key::Char('j') | Key::Down => {
+                            app.down();
+                        },
+                        Key::Char('k') | Key::Up => {
+                            app.up();
+                        },
+                        Key::Char('d') => {
+                            let i = app.get_selected();
+                            issues::close_issue(i.number).await?;
+                            app.update().await;
+                        },
+                        Key::Char('c') => {
+                            app.set_input_state(InputState::Create);
+                        },
+                        _ => {
+                            println!("Unknown input!");
+                        }
                     },
-                    Key::Char('j') | Key::Down => {
-                        app.down();
+                    InputState::Create => match input {
+                        Key::Backspace => {
+                            app.buffered_issue_title.pop();
+                        },
+                        Key::Char('\n') => {
+                            issues::create_issue(app.buffered_issue_title.clone().as_str(), "").await?;
+                            app.set_input_state(InputState::Normal);
+                            app.update().await;
+                        },
+                        Key::Char(c) => {
+                            app.buffered_issue_title.push(c);
+                        }
+                        Key::Esc => {
+                            app.set_input_state(InputState::Normal);
+                        },
+                        _ => {},
                     },
-                    Key::Char('k') | Key::Up => {
-                        app.up();
-                    },
-                    Key::Char('d') => {
-                        let i = app.get_selected();
-                        issues::close_issue(i.number).await?;
-                        app.update().await;
-                    },
-                    _ => {
-                        println!("Unknown input!");
-                    }
                 }
             }
             Event::Tick => {
