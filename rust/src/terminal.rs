@@ -7,7 +7,7 @@ use termion::input::TermRead;
 use tui::widgets::{Block, Borders, List};
 use tui::layout::{Layout, Constraint, Direction};
 
-use crate::issues::{self, get_issues};
+use crate::{config, issues::{self, get_issues}};
 
 pub enum Event<I> {
     Input(I),
@@ -74,6 +74,7 @@ struct App {
     selection: usize,
     input_state: InputState,
     buffered_issue_title: String,
+    selected_issue: i64,
 }
 
 impl App {
@@ -83,6 +84,7 @@ impl App {
             selection: 0,
             input_state: InputState::Normal,
             buffered_issue_title: String::new(),
+            selected_issue: 0,
         }
     }
  
@@ -104,6 +106,7 @@ impl App {
         if self.selection >= self.issues.len() {
             self.selection = self.issues.len() - 1
         }
+        self.selected_issue = config::get_selected_issue_number();
     }
 
     fn get_selected(&mut self) -> &Issue {
@@ -142,7 +145,12 @@ pub async fn start_terminal() -> Result<(), Box<dyn Error>> {
                 if idx == app.selection {
                     style = Style::default().bg(Color::LightGreen);
                 }
+                let mut prefix = " ";
+                if i.number == app.selected_issue {
+                    prefix = "*";
+                }
                 ListItem::new(Spans::from(vec![
+                    Span::styled(prefix, style.clone().fg(Color::Red)),
                     Span::styled(i.html_url.as_str(), style.clone().fg(Color::Blue)),
                     Span::styled(" ", style),
                     Span::styled(i.title.as_str(), style),
@@ -170,6 +178,13 @@ pub async fn start_terminal() -> Result<(), Box<dyn Error>> {
                         },
                         Key::Char('k') | Key::Up => {
                             app.up();
+                        },
+                        Key::Char('s') => {
+                            let i = app.get_selected();
+                            config::update_selected_issue(i.number);
+                        },
+                        Key::Char('x') => {
+                            config::update_selected_issue(0);
                         },
                         Key::Char('d') => {
                             let i = app.get_selected();
