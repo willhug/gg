@@ -4,7 +4,7 @@ mod config;
 mod issues;
 mod file;
 mod terminal;
-use std::process::Command;
+use std::{io::Read, process::Command};
 use std::str::from_utf8;
 use structopt::{StructOpt};
 
@@ -85,6 +85,16 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             fetch_main();
             checkout_main();
             delete_branch(branch);
+            let selected_issue = config::get_selected_issue_number();
+            if selected_issue > 0 {
+                let issue = issues::get_issue(selected_issue).await?;
+                println!("Close issue '{}' github.com/willhug/gg/issues/{}? y/n", issue.title, selected_issue);
+                let res = std::io::stdin().bytes().next().and_then(|result| result.ok()).unwrap() as char;
+                if res == 'y' {
+                    issues::close_issue(selected_issue).await?;
+                    config::update_selected_issue(0);
+                }
+            }
         },
         Cmd::Rebase { interactive } => {
             rebase(interactive);

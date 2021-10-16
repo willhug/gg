@@ -1,4 +1,4 @@
-use crate::color;
+use crate::{color, config};
 use crate::file;
 use octocrab::Octocrab;
 use octocrab::models::IssueState;
@@ -10,7 +10,7 @@ pub async fn create_pr(full_branch: String) -> octocrab::Result<()> {
     let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required");
     let octo = Octocrab::builder().personal_token(token).build()?;
 
-    let (title, body) = get_title_and_body(full_branch.clone());
+    let (title, body) = get_title_and_body();
     let res = octo.pulls("willhug", "gg")
         .create(title, full_branch, "main")
         .body(body)
@@ -23,17 +23,31 @@ pub async fn create_pr(full_branch: String) -> octocrab::Result<()> {
     Ok(())
 }
 
-fn get_title_and_body(branch: String) -> (String, String) {
-    let res = file::open_vim(get_git_log_for_branch(branch));
+fn get_title_and_body() -> (String, String) {
+    let res = file::open_vim(get_template_for_pr());
     let (title, body) = res.split_once("\n").expect("wanted at least two lines");
     (title.to_string(), body.to_string())
 }
 
-fn get_git_log_for_branch(_branch: String) -> String {
+fn get_template_for_pr() -> String {
+    let config = config::get_config();
+    let mut template = get_git_log_from_base_branch(config.repo_main_branch);
+
+    match config.linked_issue {
+        Some(0) => {},
+        None => {},
+        Some(x) => {
+            template.push_str(format!("\n\nResolves Issue: github.com/willhug/gg/issues/{}", x).as_str());
+        }
+    }
+    template
+}
+
+fn get_git_log_from_base_branch(core_branch: String) -> String {
     let out = match Command::new("git")
             .arg("log")
             .arg("--pretty=%s%+b")
-            .arg("origin/main..HEAD")
+            .arg(format!("origin/{}..HEAD", core_branch))
             .output() {
                 Ok(output) => output,
                 Err(_e) => panic!("error!")
@@ -75,7 +89,7 @@ fn print_pull(pull: PullRequest) {
         IssueState::Open => color::green("Open"),
         _ => color::red("Unknown"),
     };
-    println!("{}: {}", color::bold(state), pull.title)
+    println!("{}: {} {}", color::bold(state), color::blue(pull.html_url), pull.title)
 }
 
 pub async fn land_pr(full_branch: String) -> octocrab::Result<()> {

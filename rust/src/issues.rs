@@ -27,6 +27,17 @@ pub async fn list_issues() -> octocrab::Result<()> {
     Ok(())
 }
 
+pub async fn get_issue(number: i64) -> octocrab::Result<Issue> {
+    let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required");
+    let octo = Octocrab::builder().personal_token(token).build()?;
+
+    let res = octo.issues("willhug", "gg")
+        .get(number as u64)
+        .await?;
+
+    Ok(res)
+}
+
 pub async fn get_issues() -> octocrab::Result<Vec<Issue>> {
     let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required");
     let octo = Octocrab::builder().personal_token(token).build()?;
