@@ -21,7 +21,7 @@ enum Cmd {
     #[structopt(about = "Create a new git branch")]
     New {
         #[structopt(short,long)]
-        name: String
+        feature: String
     },
     #[structopt(about = "Push the current branch to origin")]
     Push {
@@ -61,8 +61,8 @@ enum IssueSubcommand {
 async fn main() ->  Result<(), Box<dyn std::error::Error>> {
     let opt = GG::from_args();
     match opt.cmd {
-        Cmd::New { name } => {
-            new(name.as_str());
+        Cmd::New { feature } => {
+            new(feature.as_str());
         },
         Cmd::Push { force} => {
             push(current_branch(), force);
