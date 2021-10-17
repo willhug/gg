@@ -88,7 +88,7 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             let selected_issue = config::get_selected_issue_number();
             if selected_issue > 0 {
                 let issue = issues::get_issue(selected_issue).await?;
-                println!("Close issue '{}' github.com/willhug/gg/issues/{}? y/n", issue.title, selected_issue);
+                print!("Close issue '{}' github.com/willhug/gg/issues/{}?\n [y/n]: ", issue.title, selected_issue);
                 let res = std::io::stdin().bytes().next().and_then(|result| result.ok()).unwrap() as char;
                 if res == 'y' {
                     issues::close_issue(selected_issue).await?;
