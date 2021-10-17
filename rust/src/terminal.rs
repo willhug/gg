@@ -182,6 +182,7 @@ pub async fn start_terminal() -> Result<(), Box<dyn Error>> {
                         Key::Char('s') => {
                             let i = app.get_selected();
                             config::update_selected_issue(i.number);
+                            app.selected_issue = i.number;
                         },
                         Key::Char('x') => {
                             config::update_selected_issue(0);
