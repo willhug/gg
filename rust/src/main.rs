@@ -4,8 +4,10 @@ mod config;
 mod issues;
 mod file;
 mod terminal;
+mod status;
 use std::{io::Read, process::Command};
 use std::str::from_utf8;
+use status::runstatus;
 use structopt::{StructOpt};
 
 #[derive(StructOpt)]
@@ -33,7 +35,7 @@ enum Cmd {
     #[structopt(about = "Fetch the current master/main.")]
     Fetch {},
     #[structopt(about = "Show the status of the current branch's PR")]
-    Status {},
+    Info {},
     #[structopt(about = "Land the current PR")]
     Land {},
     #[structopt(about = "Rebase the current branch onto master/main")]
@@ -41,8 +43,12 @@ enum Cmd {
         #[structopt(short,long)]
         interactive: bool
     },
+    #[structopt(about = "Manage issues")]
     Issue(IssueSubcommand),
+    #[structopt(about = "Open a TUI terminal to view issues")]
     Terminal {},
+    #[structopt(about = "Manage status/daily record info")]
+    Status {},
 }
 
 #[derive(StructOpt, Debug)]
@@ -75,7 +81,7 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         Cmd::Fetch {} => {
             fetch_main();
         },
-        Cmd::Status {} => {
+        Cmd::Info {} => {
             let branch = current_branch();
             pr::pr_statuses(branch).await.expect("error seeing PR");
         },
@@ -112,6 +118,9 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         Cmd::Terminal {} => {
             terminal::start_terminal().await.unwrap();
         }
+        Cmd::Status {  } => {
+           runstatus();
+        },
     }
     Ok(())
 }
