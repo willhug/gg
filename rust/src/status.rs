@@ -1,4 +1,4 @@
-use std::{fs::File, io::Read};
+use std::{fs::{File, OpenOptions}, io::{Read, Write}};
 
 
 
@@ -28,7 +28,43 @@ enum DayEventType {
 pub fn runstatus() {
     let status = parse_status_file("/home/will/status.txt".to_string()).unwrap();
     println!("{:?}", status);
+    write_status_file("/tmp/status_test.txt".to_string(), status).unwrap();
 }
+
+fn write_status_file(filepath: String, status_file: StatusFile) -> Result<(), anyhow::Error> {
+    let status_str = status_to_string(status_file);
+
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(filepath)
+        .map_err(anyhow::Error::msg)?;
+
+    file.write_all(status_str.as_bytes()).map_err(anyhow::Error::msg)?;
+    file.sync_all().map_err(anyhow::Error::msg)
+}
+
+fn status_to_string(status_file: StatusFile) -> String {
+    let mut content = String::new();
+    for day in status_file.days {
+        content.push_str(&format!("[{}]\n", day.day));
+        for event in day.events {
+            match event.typ {
+                DayEventType::Issue => {
+                    content.push_str(&format!("- {}\n", event.info));
+                },
+                DayEventType::TODO => {
+                    content.push_str(&format!("- TODO: {}\n", event.info));
+                },
+
+            }
+        }
+        content.push('\n');
+    }
+    content
+}
+
 
 fn parse_status_file(filename: String) -> Result<StatusFile, anyhow::Error> {
     let mut file = File::open(filename).map_err(anyhow::Error::msg)?;
