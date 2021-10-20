@@ -1,4 +1,6 @@
-use std::{fs::{File, OpenOptions}, io::{Read, Write}};
+use std::{fs::{File, OpenOptions}, io::{Read, Write}, time};
+
+use chrono::prelude::*;
 
 
 
@@ -29,6 +31,11 @@ pub fn runstatus() {
     let status = parse_status_file("/home/will/status.txt".to_string()).unwrap();
     println!("{:?}", status);
     write_status_file("/tmp/status_test.txt".to_string(), status).unwrap();
+}
+
+fn today() -> String {
+    let local = Local::now();
+    format!("{}-{}-{}", local.year(), local.month(), local.day())
 }
 
 fn write_status_file(filepath: String, status_file: StatusFile) -> Result<(), anyhow::Error> {

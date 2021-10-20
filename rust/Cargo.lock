@@ -342,6 +342,7 @@ name = "gg"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap 3.0.0-beta.4",
  "futures",
  "octocrab",
