@@ -1,4 +1,4 @@
-use std::{fs::{File, OpenOptions}, io::{Read, Write}, time};
+use std::{fs::{self, File, OpenOptions}, io::{Read, Write}};
 
 use chrono::prelude::*;
 
@@ -27,10 +27,46 @@ enum DayEventType {
     TODO,
 }
 
-pub fn runstatus() {
+pub fn list_statuses() {
     let status = parse_status_file("/home/will/status.txt".to_string()).unwrap();
-    println!("{:?}", status);
-    write_status_file("/tmp/status_test.txt".to_string(), status).unwrap();
+    print!("{}", status_to_string(status));
+}
+
+pub fn write_status(body: String, todo: bool) {
+    let mut status = parse_status_file("/home/will/status.txt".to_string()).unwrap();
+    let today = today();
+    if status.days.len() == 0 || status.days[0].day != today {
+        let day = Day {
+            day: today.clone(),
+            events: vec![],
+        };
+        let mut new_days = vec![day];
+        new_days.append(&mut status.days);
+        status.days = new_days;
+    }
+    let event = create_event(body, todo);
+    status.days[0].events.push(event);
+
+    fs::create_dir_all("/home/will/status_bu").unwrap();
+
+    fs::copy(
+        "/home/will/status.txt",
+        format!("/home/will/status_bu/{}_{}", today, Utc::now().timestamp()),
+    ).unwrap();
+
+    write_status_file("/home/will/status.txt".to_string(), status).unwrap();
+}
+
+fn create_event(body: String, todo: bool) -> DayEvent {
+    let typ = match todo {
+        true => DayEventType::TODO,
+        false => DayEventType::Issue,
+    };
+
+    DayEvent{
+        typ,
+        info: body,
+    }
 }
 
 fn today() -> String {

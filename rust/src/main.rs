@@ -7,7 +7,6 @@ mod terminal;
 mod status;
 use std::{io::Read, process::Command};
 use std::str::from_utf8;
-use status::runstatus;
 use structopt::{StructOpt};
 
 #[derive(StructOpt)]
@@ -48,7 +47,7 @@ enum Cmd {
     #[structopt(about = "Open a TUI terminal to view issues")]
     Terminal {},
     #[structopt(about = "Manage status/daily record info")]
-    Status {},
+    Status(StatusSubcommand),
 }
 
 #[derive(StructOpt, Debug)]
@@ -60,6 +59,21 @@ enum IssueSubcommand {
         title: String
     },
     #[structopt(about = "List open github issues")]
+    List {},
+}
+
+#[derive(StructOpt, Debug)]
+#[structopt(about = "Commands for managing the status file")]
+enum StatusSubcommand {
+    #[structopt(about = "Write a new entry for today.")]
+    Write {
+        #[structopt(short,long)]
+        body: String,
+
+        #[structopt(short,long)]
+        todo: bool,
+    },
+    #[structopt(about = "List the existing tasks.")]
     List {},
 }
 
@@ -118,8 +132,15 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         Cmd::Terminal {} => {
             terminal::start_terminal().await.unwrap();
         }
-        Cmd::Status {  } => {
-           runstatus();
+        Cmd::Status(cmd) => {
+            match cmd {
+                StatusSubcommand::Write { body, todo } => {
+                    status::write_status(body, todo);
+                },
+                StatusSubcommand::List {  } => {
+                    status::list_statuses();
+                },
+            }
         },
     }
     Ok(())
