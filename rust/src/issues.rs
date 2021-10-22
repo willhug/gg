@@ -1,11 +1,11 @@
-use crate::{color, status};
+use crate::{color, config, status};
 use octocrab::{Octocrab, models::{IssueState, issues::Issue}};
 
 pub async fn create_issue(title: &str, body: &str) -> octocrab::Result<()> {
-    let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required");
-    let octo = Octocrab::builder().personal_token(token).build()?;
+    let cfg = config::get_full_config();
+    let octo = Octocrab::builder().personal_token(cfg.github_token).build()?;
 
-    let res = octo.issues("willhug", "gg")
+    let res = octo.issues(cfg.repo_org, cfg.repo_name)
         .create(title)
         .body(body)
         .send()
@@ -28,10 +28,10 @@ pub async fn list_issues() -> octocrab::Result<()> {
 }
 
 pub async fn get_issue(number: i64) -> octocrab::Result<Issue> {
-    let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required");
-    let octo = Octocrab::builder().personal_token(token).build()?;
+    let cfg = config::get_full_config();
+    let octo = Octocrab::builder().personal_token(cfg.github_token).build()?;
 
-    let res = octo.issues("willhug", "gg")
+    let res = octo.issues(cfg.repo_org, cfg.repo_name)
         .get(number as u64)
         .await?;
 
@@ -39,12 +39,12 @@ pub async fn get_issue(number: i64) -> octocrab::Result<Issue> {
 }
 
 pub async fn get_issues() -> octocrab::Result<Vec<Issue>> {
-    let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required");
-    let octo = Octocrab::builder().personal_token(token).build()?;
+    let cfg = config::get_full_config();
+    let octo = Octocrab::builder().personal_token(cfg.github_token).build()?;
 
-    let res = octo.issues("willhug", "gg")
+    let res = octo.issues(cfg.repo_org, cfg.repo_name)
         .list()
-        .creator("willhug")
+        .creator(cfg.current_github_user)
         .per_page(100)
         .send()
         .await?;
@@ -55,12 +55,12 @@ pub async fn get_issues() -> octocrab::Result<Vec<Issue>> {
 }
 
 pub async fn close_issue(number: i64) -> octocrab::Result<()> {
-    let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required");
-    let octo = Octocrab::builder().personal_token(token).build()?;
+    let cfg = config::get_full_config();
+    let octo = Octocrab::builder().personal_token(cfg.github_token).build()?;
 
     let issue = get_issue(number).await?;
 
-    octo.issues("willhug", "gg")
+    octo.issues(cfg.repo_org, cfg.repo_name)
         .update(number as u64)
         .state(IssueState::Closed)
         .send()

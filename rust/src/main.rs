@@ -105,6 +105,7 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             pr::pr_statuses(branch).await.expect("error seeing PR");
         },
         Cmd::Land {} => {
+            let cfg = config::get_full_config();
             let branch = current_branch();
             pr::land_pr(branch.clone()).await.expect("error landing PR");
             fetch_main();
@@ -113,7 +114,7 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             let selected_issue = config::get_selected_issue_number();
             if selected_issue > 0 {
                 let issue = issues::get_issue(selected_issue).await?;
-                print!("Close issue '{}' github.com/willhug/gg/issues/{}?\n [y/n]: ", issue.title, selected_issue);
+                print!("Close issue '{}' github.com/{}/{}/issues/{}?\n [y/n]: ", issue.title, cfg.repo_org, cfg.repo_name, selected_issue);
                 let res = std::io::stdin().bytes().next().and_then(|result| result.ok()).unwrap() as char;
                 if res == 'y' {
                     issues::close_issue(selected_issue).await?;
@@ -199,7 +200,7 @@ fn push(full_branch: String, force: bool) {
 }
 
 fn fetch_main() {
-    let cfg = config::get_config();
+    let cfg = config::get_saved_config();
     Command::new("git")
             .arg("fetch")
             .arg("-p")
@@ -221,7 +222,7 @@ fn fixup_main() {
 }
 
 fn rebase(interactive: bool) {
-    let cfg = config::get_config();
+    let cfg = config::get_saved_config();
     let mut com = Command::new("git");
     let c = com.arg("rebase");
     if interactive {
@@ -234,7 +235,7 @@ fn rebase(interactive: bool) {
 }
 
 fn checkout_main() {
-    let cfg = config::get_config();
+    let cfg = config::get_saved_config();
     Command::new("git")
         .arg("checkout")
         .arg(format!("origin/{}", cfg.repo_main_branch))
