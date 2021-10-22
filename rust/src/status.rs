@@ -2,6 +2,8 @@ use std::{fs::{self, File, OpenOptions}, io::{Read, Write}};
 
 use chrono::prelude::*;
 
+use crate::config;
+
 
 
 #[derive(Debug)]
@@ -28,12 +30,14 @@ enum DayEventType {
 }
 
 pub fn list_statuses() {
-    let status = parse_status_file("/home/will/status.txt".to_string()).unwrap();
+    let cfg = config::get_full_config();
+    let status = parse_status_file(cfg.status_file).unwrap();
     print!("{}", status_to_string(status));
 }
 
 pub fn write_status(body: String, todo: bool) {
-    let mut status = parse_status_file("/home/will/status.txt".to_string()).unwrap();
+    let cfg = config::get_full_config();
+    let mut status = parse_status_file(cfg.status_file.clone()).unwrap();
     let today = today();
     if status.days.len() == 0 || status.days[0].day != today {
         let day = Day {
@@ -47,14 +51,14 @@ pub fn write_status(body: String, todo: bool) {
     let event = create_event(body, todo);
     status.days[0].events.push(event);
 
-    fs::create_dir_all("/home/will/status_bu").unwrap();
+    fs::create_dir_all(cfg.status_file_backup_dir.clone()).unwrap();
 
     fs::copy(
-        "/home/will/status.txt",
-        format!("/home/will/status_bu/{}_{}", today, Utc::now().timestamp()),
+        cfg.status_file.clone(),
+        format!("{}/{}_{}", cfg.status_file_backup_dir, today, Utc::now().timestamp()),
     ).unwrap();
 
-    write_status_file("/home/will/status.txt".to_string(), status).unwrap();
+    write_status_file(cfg.status_file, status).unwrap();
 }
 
 fn create_event(body: String, todo: bool) -> DayEvent {

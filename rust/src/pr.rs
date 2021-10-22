@@ -7,12 +7,12 @@ use std::process::Command;
 use std::str::from_utf8;
 
 pub async fn create_pr(full_branch: String) -> octocrab::Result<()> {
-    let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required");
-    let octo = Octocrab::builder().personal_token(token).build()?;
+    let cfg = config::get_full_config();
+    let octo = Octocrab::builder().personal_token(cfg.github_token).build()?;
 
     let (title, body) = get_title_and_body();
-    let res = octo.pulls("willhug", "gg")
-        .create(title, full_branch, "main")
+    let res = octo.pulls(cfg.repo_org, cfg.repo_name)
+        .create(title, full_branch, cfg.saved.repo_main_branch)
         .body(body)
         .send()
         .await?;
@@ -30,14 +30,14 @@ fn get_title_and_body() -> (String, String) {
 }
 
 fn get_template_for_pr() -> String {
-    let config = config::get_config();
-    let mut template = get_git_log_from_base_branch(config.repo_main_branch);
+    let cfg = config::get_full_config();
+    let mut template = get_git_log_from_base_branch(cfg.saved.repo_main_branch);
 
-    match config.linked_issue {
+    match cfg.saved.linked_issue {
         Some(0) => {},
         None => {},
         Some(x) => {
-            template.push_str(format!("\n\nResolves Issue: github.com/willhug/gg/issues/{}", x).as_str());
+            template.push_str(format!("\n\nResolves Issue: github.com/{}/{}/issues/{}", cfg.repo_org, cfg.repo_name, x).as_str());
         }
     }
     template
@@ -66,11 +66,11 @@ pub async fn pr_statuses(full_branch: String) -> octocrab::Result<()> {
 }
 
 async fn pr_for_branch(branch: String) -> octocrab::Result<PullRequest> {
-    let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required");
-    let octo = Octocrab::builder().personal_token(token).build()?;
+    let cfg = config::get_full_config();
+    let octo = Octocrab::builder().personal_token(cfg.github_token).build()?;
 
-    let hub_head = format!("willhug:{}", branch);
-    let pulls = octo.pulls("willhug", "gg")
+    let hub_head = format!("{}:{}", cfg.repo_org, branch);
+    let pulls = octo.pulls(cfg.repo_org, cfg.repo_name)
         .list()
         .head(hub_head)
         .per_page(1)
@@ -95,12 +95,12 @@ fn print_pull(pull: PullRequest) {
 pub async fn land_pr(full_branch: String) -> octocrab::Result<()> {
     let pr = pr_for_branch(full_branch).await?;
 
-    let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required");
-    let octo = Octocrab::builder().personal_token(token).build()?;
+    let cfg = config::get_full_config();
+    let octo = Octocrab::builder().personal_token(cfg.github_token).build()?;
 
     // TODO ADD TESTS CHECK
 
-    let res = octo.pulls("willhug", "gg")
+    let res = octo.pulls(cfg.repo_org, cfg.repo_name)
         .merge(pr.number)
         .method(octocrab::params::pulls::MergeMethod::Rebase)
         .send()
