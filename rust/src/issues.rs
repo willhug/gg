@@ -1,4 +1,4 @@
-use crate::color;
+use crate::{color, status};
 use octocrab::{Octocrab, models::{IssueState, issues::Issue}};
 
 pub async fn create_issue(title: &str, body: &str) -> octocrab::Result<()> {
@@ -58,11 +58,16 @@ pub async fn close_issue(number: i64) -> octocrab::Result<()> {
     let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required");
     let octo = Octocrab::builder().personal_token(token).build()?;
 
+    let issue = get_issue(number).await?;
+
     octo.issues("willhug", "gg")
         .update(number as u64)
         .state(IssueState::Closed)
         .send()
         .await?;
+
+    // Triggers
+    status::write_status(format!("Closed: {}", issue.title), false);
 
     Ok(())
 }
