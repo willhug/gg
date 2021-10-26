@@ -33,6 +33,8 @@ enum Cmd {
     Pr {},
     #[structopt(about = "Fetch the current master/main.")]
     Fetch {},
+    #[structopt(about = "Run a fixup rebase on the current branch.")]
+    Fixup {},
     #[structopt(about = "Show the status of the current branch's PR")]
     Info {},
     #[structopt(about = "Land the current PR")]
@@ -94,6 +96,9 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         },
         Cmd::Fetch {} => {
             fetch_main();
+        },
+        Cmd::Fixup {} => {
+            fixup_main();
         },
         Cmd::Info {} => {
             let branch = current_branch();
@@ -202,6 +207,17 @@ fn fetch_main() {
             .arg(cfg.repo_main_branch)
             .output()
             .expect("failed to fetch main branch");
+}
+
+fn fixup_main() {
+    // TODO USE START/END BRANCHES 
+    let cfg = config::get_config();
+    Command::new("git")
+            .arg("rebase")
+            .arg("-i")
+            .arg(format!("origin/{}",cfg.repo_main_branch))
+            .status()
+            .expect("failed to fixup main branch");
 }
 
 fn rebase(interactive: bool) {
