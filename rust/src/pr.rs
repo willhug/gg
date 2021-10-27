@@ -59,15 +59,15 @@ fn get_git_log_from_base_branch(core_branch: String) -> String {
     return result.to_string()
 }
 
-pub async fn pr_statuses(full_branch: String) -> octocrab::Result<()> {
-    let pr = pr_for_branch(full_branch).await?;
-    print_pull(pr);
+pub async fn pr_statuses(full_branch: String) -> anyhow::Result<()> {
+    let pr = pr_for_branch(full_branch.clone()).await?;
+    print_pull(pr, full_branch);
     Ok(())
 }
 
-async fn pr_for_branch(branch: String) -> octocrab::Result<PullRequest> {
+async fn pr_for_branch(branch: String) -> anyhow::Result<Option<PullRequest>> {
     let cfg = config::get_full_config();
-    let octo = Octocrab::builder().personal_token(cfg.github_token).build()?;
+    let octo = Octocrab::builder().personal_token(cfg.github_token).build().map_err(anyhow::Error::msg)?;
 
     let hub_head = format!("{}:{}", cfg.repo_org, branch);
     let pulls = octo.pulls(cfg.repo_org, cfg.repo_name)
@@ -75,28 +75,38 @@ async fn pr_for_branch(branch: String) -> octocrab::Result<PullRequest> {
         .head(hub_head)
         .per_page(1)
         .send()
-        .await?;
+        .await
+        .map_err(anyhow::Error::msg)?;
 
     if pulls.items.len() == 1 {
-        return Ok(pulls.items.first().unwrap().clone())
+        return Ok(Option::Some(pulls.items.first().unwrap().clone()))
     }
-    panic!("no errors!")
+    return Ok(Option::None)
 }
 
-fn print_pull(pull: PullRequest) {
-    let state = match pull.state {
-        IssueState::Closed => color::red("Closed"),
-        IssueState::Open => color::green("Open"),
-        _ => color::red("Unknown"),
+fn print_pull(pull: Option<PullRequest>, branch: String) {
+    let (state, url, title) = match pull {
+        Some(p) => (match p.state {
+            IssueState::Closed => color::red("Closed"),
+            IssueState::Open => color::green("Open"),
+            _ => color::red("Unknown"),
+        }, color::blue(p.html_url), p.title),
+        None => (color::white("N/A"), color::white("N/A"), "".to_string()),
     };
-    println!("{}: {} {}", color::bold(state), color::blue(pull.html_url), pull.title)
+    println!(
+        "{}\t{}\t{}\t{}",
+        color::blue(branch),
+        color::bold(state),
+        url,
+        title,
+    )
 }
 
-pub async fn land_pr(full_branch: String) -> octocrab::Result<()> {
-    let pr = pr_for_branch(full_branch).await?;
+pub async fn land_pr(full_branch: String) -> anyhow::Result<()> {
+    let pr = pr_for_branch(full_branch).await?.expect("want be there");
 
     let cfg = config::get_full_config();
-    let octo = Octocrab::builder().personal_token(cfg.github_token).build()?;
+    let octo = Octocrab::builder().personal_token(cfg.github_token).build().map_err(anyhow::Error::msg)?;
 
     // TODO ADD TESTS CHECK
 
@@ -104,7 +114,8 @@ pub async fn land_pr(full_branch: String) -> octocrab::Result<()> {
         .merge(pr.number)
         .method(octocrab::params::pulls::MergeMethod::Rebase)
         .send()
-        .await?;
+        .await
+        .map_err(anyhow::Error::msg)?;
 
     println!("Merge was {}",
         if res.merged {
