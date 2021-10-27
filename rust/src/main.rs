@@ -35,8 +35,11 @@ enum Cmd {
     Fetch {},
     #[structopt(about = "Run a fixup rebase on the current branch.")]
     Fixup {},
-    #[structopt(about = "Show the status of the current branch's PR")]
-    Info {},
+    #[structopt(about = "Show the status of the current branch (or all the branches)")]
+    Log {
+        #[structopt(short,long)]
+        all: bool
+    },
     #[structopt(about = "Land the current PR")]
     Land {},
     #[structopt(about = "Rebase the current branch onto master/main")]
@@ -100,9 +103,8 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         Cmd::Fixup {} => {
             fixup_main();
         },
-        Cmd::Info {} => {
-            let branch = current_branch();
-            pr::pr_statuses(branch).await.expect("error seeing PR");
+        Cmd::Log { all } => {
+            log(all).await;
         },
         Cmd::Land {} => {
             let cfg = config::get_full_config();
@@ -152,6 +154,18 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+async fn log(all: bool) {
+    let mut branches = vec![];
+    if all {
+        branches = all_branches();
+    } else {
+        branches.push(current_branch());
+    }
+    for branch in branches {
+        pr::pr_statuses(branch).await.expect("error seeing PR");
+    }
+}
+
 
 fn new(chosen_name: &str) {
     let branch: String = ["wh", chosen_name].join("/");
@@ -161,6 +175,28 @@ fn new(chosen_name: &str) {
             .arg(branch)
             .output()
             .expect("failed to create branch");
+}
+
+fn all_branches() -> Vec<String> {
+    let cfg = config::get_full_config();
+    let out = match Command::new("git")
+            .arg("branch")
+            .output() {
+                Ok(output) => output,
+                Err(_e) => panic!("error!")
+    };
+    let x: &[_] = &[' ', '\t', '\n', '\r', '*'];
+    let result = from_utf8(&out.stdout)
+        .expect("msg")
+        .trim_end_matches(x);
+    let mut branches = vec![];
+    for line in result.split('\n') {
+        let trimmed_line = line.trim_matches(x);
+        if trimmed_line.starts_with(cfg.saved.branch_prefix.as_str()) {
+            branches.push(trimmed_line.to_string());
+        }
+    }
+    branches
 }
 
 fn current_branch() -> String {
@@ -212,11 +248,11 @@ fn fetch_main() {
 
 fn fixup_main() {
     // TODO USE START/END BRANCHES 
-    let cfg = config::get_config();
+    let cfg = config::get_full_config();
     Command::new("git")
             .arg("rebase")
             .arg("-i")
-            .arg(format!("origin/{}",cfg.repo_main_branch))
+            .arg(format!("origin/{}",cfg.saved.repo_main_branch))
             .status()
             .expect("failed to fixup main branch");
 }

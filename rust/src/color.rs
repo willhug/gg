@@ -1,5 +1,9 @@
 use termion::{color, style};
 
+pub fn white<S: Into<String>>(s: S) -> String {
+    return format!("{}{}{}", color::Fg(color::White), s.into(), color::Fg(color::Reset));
+}
+
 pub fn red<S: Into<String>>(s: S) -> String {
     return format!("{}{}{}", color::Fg(color::Red), s.into(), color::Fg(color::Reset));
 }
