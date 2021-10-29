@@ -195,6 +195,10 @@ pub async fn start_terminal() -> Result<(), Box<dyn Error>> {
                         Key::Char('c') => {
                             app.set_input_state(InputState::Create);
                         },
+                        Key::Char('\n') => {
+                            let i = app.get_selected();
+                            open::that(&i.html_url.as_str()).unwrap();
+                        },
                         _ => {
                             println!("Unknown input!");
                         }
