@@ -6,16 +6,22 @@ use octocrab::models::pulls::PullRequest;
 use std::process::Command;
 use std::str::from_utf8;
 
-pub async fn create_pr(full_branch: String) -> octocrab::Result<()> {
+pub async fn create_pr(full_branch: String) -> anyhow::Result<()> {
+    let existing_pr = pr_for_branch(full_branch.clone()).await?;
+    if let Some(pr) = existing_pr {
+        println!("PR Already exists! {}", pr.html_url);
+        return Ok(())
+    }
     let cfg = config::get_full_config();
-    let octo = Octocrab::builder().personal_token(cfg.github_token).build()?;
+    let octo = Octocrab::builder().personal_token(cfg.github_token).build().map_err(anyhow::Error::msg)?;
 
     let (title, body) = get_title_and_body();
     let res = octo.pulls(cfg.repo_org, cfg.repo_name)
         .create(title, full_branch, cfg.saved.repo_main_branch)
         .body(body)
         .send()
-        .await?;
+        .await
+        .map_err(anyhow::Error::msg)?;
 
 
     println!("Created PR: {}", res.html_url);
