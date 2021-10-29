@@ -5,7 +5,7 @@ mod issues;
 mod file;
 mod terminal;
 mod status;
-use std::{io::Read, process::Command};
+use std::{io::{self, Read, Write}, process::Command};
 use std::str::from_utf8;
 use structopt::{StructOpt};
 
@@ -116,7 +116,8 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             let selected_issue = config::get_selected_issue_number();
             if selected_issue > 0 {
                 let issue = issues::get_issue(selected_issue).await?;
-                print!("Close issue '{}' github.com/{}/{}/issues/{}?\n [y/n]: ", issue.title, cfg.repo_org, cfg.repo_name, selected_issue);
+                print!("Close issue '{}' github.com/{}/{}/issues/{}?\n[y/n]: ", issue.title, cfg.repo_org, cfg.repo_name, selected_issue);
+                io::stdout().flush().unwrap();
                 let res = std::io::stdin().bytes().next().and_then(|result| result.ok()).unwrap() as char;
                 if res == 'y' {
                     issues::close_issue(selected_issue).await?;
