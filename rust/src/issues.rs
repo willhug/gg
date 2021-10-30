@@ -68,6 +68,9 @@ pub async fn close_issue(number: i64) -> octocrab::Result<()> {
 
     // Triggers
     status::write_status(format!("Closed: {}", issue.title), false);
+    if cfg.saved.linked_issue.is_some() && cfg.saved.linked_issue.unwrap() == issue.number {
+        config::clear_selected_issue();
+    }
 
     Ok(())
 }

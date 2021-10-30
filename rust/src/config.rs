@@ -70,6 +70,14 @@ fn get_repo_root_path() -> String {
     return result.to_string()
 }
 
+pub fn clear_selected_issue() {
+    let mut cfg = get_saved_config();
+
+    cfg.linked_issue = None;
+
+    write_saved_config(cfg);
+}
+
 pub fn update_selected_issue(issue: i64) {
     let mut cfg = get_saved_config();
 
