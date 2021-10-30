@@ -213,7 +213,7 @@ fn current_branch() -> String {
     let result = from_utf8(&out.stdout)
         .expect("msg")
         .trim_end_matches(x);
-    return result.to_string()
+    result.to_string()
 }
 
 fn push(full_branch: String, force: bool) {

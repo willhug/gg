@@ -32,12 +32,10 @@ impl Events {
             let tx = tx.clone();
             thread::spawn(move || {
                 let stdin = io::stdin();
-                for evt in stdin.keys() {
-                    if let Ok(key) = evt {
-                        if let Err(err) = tx.send(Event::Input(key)) {
-                            eprintln!("{}", err);
-                            return;
-                        }
+                for evt in stdin.keys().into_iter().flatten() {
+                    if let Err(err) = tx.send(Event::Input(evt)) {
+                        eprintln!("{}", err);
+                        return;
                     }
                 }
             })
@@ -150,8 +148,8 @@ pub async fn start_terminal() -> Result<(), Box<dyn Error>> {
                     prefix = "*";
                 }
                 ListItem::new(Spans::from(vec![
-                    Span::styled(prefix, style.clone().fg(Color::Red)),
-                    Span::styled(i.html_url.as_str(), style.clone().fg(Color::Blue)),
+                    Span::styled(prefix, style.fg(Color::Red)),
+                    Span::styled(i.html_url.as_str(), style.fg(Color::Blue)),
                     Span::styled(" ", style),
                     Span::styled(i.title.as_str(), style),
                 ]))

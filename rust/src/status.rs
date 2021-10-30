@@ -27,7 +27,7 @@ struct DayEvent {
 #[derive(Debug, Clone)]
 enum DayEventType {
     Issue,
-    TODO,
+    Todo,
 }
 
 pub fn list_statuses() {
@@ -40,7 +40,7 @@ pub fn write_status(body: String, todo: bool) {
     let cfg = config::get_full_config();
     let mut status = parse_status_file(cfg.status_file.clone()).unwrap();
     let today = today();
-    if status.days.len() == 0 || status.days[0].day != today {
+    if status.days.is_empty() || status.days[0].day != today {
         let day = Day {
             day: today.clone(),
             events: vec![],
@@ -64,7 +64,7 @@ pub fn write_status(body: String, todo: bool) {
 
 fn create_event(body: String, todo: bool, repo: String) -> DayEvent {
     let typ = match todo {
-        true => DayEventType::TODO,
+        true => DayEventType::Todo,
         false => DayEventType::Issue,
     };
 
@@ -107,7 +107,7 @@ fn status_to_string(status_file: StatusFile) -> String {
                 DayEventType::Issue => {
                     content.push_str(&format!("- {}{}\n", event.info, repo_suffix));
                 },
-                DayEventType::TODO => {
+                DayEventType::Todo => {
                     content.push_str(&format!("- TODO: {}{}\n", event.info, repo_suffix));
                 },
 
@@ -135,9 +135,9 @@ fn parse_status_file(filename: String) -> Result<StatusFile, anyhow::Error> {
     for line in buf.lines() {
         if line.trim() == "" {
             continue;
-        } else if line.starts_with("[") && line.len() > 11 {
+        } else if line.starts_with('[') && line.len() > 11 {
             let day_str = &line[1..11];
-            if current_day.day == "" {
+            if current_day.day.is_empty() {
                 current_day.day = day_str.to_string();
             } else {
                 status_file.days.push(current_day.clone());
@@ -145,17 +145,17 @@ fn parse_status_file(filename: String) -> Result<StatusFile, anyhow::Error> {
                 current_day.events = vec![];
             }
             continue;
-        } else if line.starts_with("- TODO: ") {
+        } else if let Some(stripped) = line.strip_prefix("- TODO: ") {
             let event = DayEvent{
-                typ: DayEventType::TODO,
-                info: line[8..].to_string(),
+                typ: DayEventType::Todo,
+                info: stripped.to_string(),
                 repo: "".to_string(),
             };
             current_day.events.push(event);
-        } else if line.starts_with("- ") {
+        } else if let Some(stripped) = line.strip_prefix("- ") {
             let event = DayEvent{
                 typ: DayEventType::Issue,
-                info: line[2..].to_string(),
+                info: stripped.to_string(),
                 repo: "".to_string(),
             };
             current_day.events.push(event);
