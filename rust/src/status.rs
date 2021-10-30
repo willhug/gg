@@ -21,6 +21,7 @@ struct Day {
 struct DayEvent {
     typ: DayEventType,
     info: String,
+    repo: String,
 }
 
 #[derive(Debug, Clone)]
@@ -48,7 +49,7 @@ pub fn write_status(body: String, todo: bool) {
         new_days.append(&mut status.days);
         status.days = new_days;
     }
-    let event = create_event(body, todo);
+    let event = create_event(body, todo, cfg.repo_name);
     status.days[0].events.push(event);
 
     fs::create_dir_all(cfg.status_file_backup_dir.clone()).unwrap();
@@ -61,7 +62,7 @@ pub fn write_status(body: String, todo: bool) {
     write_status_file(cfg.status_file, status).unwrap();
 }
 
-fn create_event(body: String, todo: bool) -> DayEvent {
+fn create_event(body: String, todo: bool, repo: String) -> DayEvent {
     let typ = match todo {
         true => DayEventType::TODO,
         false => DayEventType::Issue,
@@ -70,6 +71,7 @@ fn create_event(body: String, todo: bool) -> DayEvent {
     DayEvent{
         typ,
         info: body,
+        repo,
     }
 }
 
@@ -97,12 +99,16 @@ fn status_to_string(status_file: StatusFile) -> String {
     for day in status_file.days {
         content.push_str(&format!("[{}]\n", day.day));
         for event in day.events {
+            let repo_suffix = match event.repo.as_str() {
+                "" => "".to_string(),
+                _ => format!(" ({})", event.repo)
+            };
             match event.typ {
                 DayEventType::Issue => {
-                    content.push_str(&format!("- {}\n", event.info));
+                    content.push_str(&format!("- {}{}\n", event.info, repo_suffix));
                 },
                 DayEventType::TODO => {
-                    content.push_str(&format!("- TODO: {}\n", event.info));
+                    content.push_str(&format!("- TODO: {}{}\n", event.info, repo_suffix));
                 },
 
             }
@@ -143,12 +149,14 @@ fn parse_status_file(filename: String) -> Result<StatusFile, anyhow::Error> {
             let event = DayEvent{
                 typ: DayEventType::TODO,
                 info: line[8..].to_string(),
+                repo: "".to_string(),
             };
             current_day.events.push(event);
         } else if line.starts_with("- ") {
             let event = DayEvent{
                 typ: DayEventType::Issue,
                 info: line[2..].to_string(),
+                repo: "".to_string(),
             };
             current_day.events.push(event);
         }
