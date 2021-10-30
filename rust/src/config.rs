@@ -38,7 +38,7 @@ pub fn get_full_config() -> FullConfig {
 
 pub fn get_saved_config() -> SavedConfig {
     let path = get_saved_config_file_path();
-    let file = File::open(path.clone());
+    let file = File::open(path);
 
     let mut file = match file {
         Ok(file) => file,
@@ -48,7 +48,7 @@ pub fn get_saved_config() -> SavedConfig {
     let mut buf = String::new();
     file.read_to_string(&mut buf).expect("no error reading!");
     let c: SavedConfig = serde_json::from_str(buf.as_str()).expect("res!");
-    return c;
+    c
 }
 
 fn get_saved_config_file_path() -> PathBuf {
@@ -67,7 +67,7 @@ fn get_repo_root_path() -> String {
     let result = from_utf8(&out.stdout)
         .expect("msg")
         .trim_end_matches(x);
-    return result.to_string()
+    result.to_string()
 }
 
 pub fn clear_selected_issue() {
@@ -88,10 +88,7 @@ pub fn update_selected_issue(issue: i64) {
 
 pub fn get_selected_issue_number() -> i64 {
     let cfg = get_saved_config();
-    match cfg.linked_issue {
-        Some(issue) => issue,
-        None => 0,
-    }
+    cfg.linked_issue.unwrap_or(0)
 }
 
 fn create_saved_config() -> File {
@@ -134,5 +131,5 @@ fn write_saved_config(cfg: SavedConfig) -> File {
     file.sync_all().expect("should be able to write to disk");
     file.seek(SeekFrom::Start(0)).unwrap();
 
-    return file;
+    file
 }

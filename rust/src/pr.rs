@@ -62,7 +62,7 @@ fn get_git_log_from_base_branch(core_branch: String) -> String {
     let result = from_utf8(&out.stdout)
         .expect("msg")
         .trim_end_matches(x);
-    return result.to_string()
+    result.to_string()
 }
 
 pub async fn pr_statuses(full_branch: String) -> anyhow::Result<()> {
@@ -87,7 +87,7 @@ async fn pr_for_branch(branch: String) -> anyhow::Result<Option<PullRequest>> {
     if pulls.items.len() == 1 {
         return Ok(Option::Some(pulls.items.first().unwrap().clone()))
     }
-    return Ok(Option::None)
+    Ok(Option::None)
 }
 
 fn print_pull(pull: Option<PullRequest>, branch: String) {
