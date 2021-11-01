@@ -7,6 +7,7 @@ use std::fs::{File, OpenOptions};
 use std::path::{Path, PathBuf};
 
 
+#[derive(Debug)]
 pub struct FullConfig {
     pub saved: SavedConfig,
     pub repo_name: String,
@@ -17,7 +18,7 @@ pub struct FullConfig {
     pub status_file_backup_dir: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct SavedConfig {
     pub repo_main_branch: String,
     pub linked_issue: Option<i64>,
@@ -27,13 +28,28 @@ pub struct SavedConfig {
 pub fn get_full_config() -> FullConfig {
     FullConfig {
         saved: get_saved_config(),
-        repo_name: "gg".to_string(),
+        repo_name: get_repo_name(),
         repo_org: "willhug".to_string(),
         current_github_user: "willhug".to_string(),
         github_token: std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required"),
         status_file: "/home/will/status.txt".to_string(),
         status_file_backup_dir: "/home/will/status_bu".to_string(),
     }
+}
+
+fn get_repo_name() -> String {
+    let out = match Command::new("git")
+            .arg("rev-parse")
+            .arg("--show-toplevel")
+            .output() {
+                Ok(output) => output,
+                Err(_e) => panic!("error!")
+    };
+    let x: &[_] = &[' ', '\t', '\n', '\r'];
+    let result = from_utf8(&out.stdout)
+        .expect("msg")
+        .trim_end_matches(x);
+    result.split('/').last().unwrap().to_string()
 }
 
 pub fn get_saved_config() -> SavedConfig {

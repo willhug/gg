@@ -49,10 +49,12 @@ enum Cmd {
     },
     #[structopt(about = "Manage issues")]
     Issue(IssueSubcommand),
-    #[structopt(about = "Open a TUI terminal to view issues")]
+    #[structopt(about = "open a tui terminal to view issues")]
     Terminal {},
     #[structopt(about = "Manage status/daily record info")]
     Status(StatusSubcommand),
+    #[structopt(about = "dumps debug info")]
+    Debug {}, 
 }
 
 #[derive(StructOpt, Debug)]
@@ -150,6 +152,10 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
                     status::list_statuses();
                 },
             }
+        },
+        Cmd::Debug {  } => {
+            let cfg = config::get_full_config();
+            dbg!(cfg);
         },
     }
     Ok(())
