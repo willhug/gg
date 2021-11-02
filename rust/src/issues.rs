@@ -49,7 +49,7 @@ pub async fn get_issues() -> octocrab::Result<Vec<Issue>> {
         .send()
         .await?;
 
-    let list: Vec<Issue> = res.into_iter().collect();
+    let list: Vec<Issue> = res.into_iter().filter(|x| x.pull_request.is_none()).collect();
 
     Ok(list)
 }
