@@ -19,6 +19,8 @@ struct GG {
 #[derive(StructOpt, Debug)]
 #[structopt(about = "A command line tool for organizing tasks and git commits/PRs")]
 enum Cmd {
+    #[structopt(about = "Initialize this repo with the GG Config")]
+    Init {},
     #[structopt(about = "Create a new git branch")]
     New {
         #[structopt(short,long)]
@@ -156,6 +158,9 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         Cmd::Debug {  } => {
             let cfg = config::get_full_config();
             dbg!(cfg);
+        },
+        Cmd::Init {  } => {
+            config::get_full_config();
         },
     }
     Ok(())
