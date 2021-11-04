@@ -13,7 +13,7 @@ struct StatusFile {
 
 #[derive(Debug, Clone)]
 struct Day {
-    day: String,
+    day: NaiveDate,
     events: Vec<DayEvent>,
 }
 
@@ -42,7 +42,7 @@ pub fn write_status(body: String, todo: bool) {
     let today = today();
     if status.days.is_empty() || status.days[0].day != today {
         let day = Day {
-            day: today.clone(),
+            day: today,
             events: vec![],
         };
         let mut new_days = vec![day];
@@ -56,7 +56,7 @@ pub fn write_status(body: String, todo: bool) {
 
     fs::copy(
         cfg.status_file.clone(),
-        format!("{}/{}_{}", cfg.status_file_backup_dir, today, Utc::now().timestamp()),
+        format!("{}/{}_{}", cfg.status_file_backup_dir, today.format("%Y-%m-%d"), Utc::now().timestamp()),
     ).unwrap();
 
     write_status_file(cfg.status_file, status).unwrap();
@@ -75,9 +75,9 @@ fn create_event(body: String, todo: bool, repo: String) -> DayEvent {
     }
 }
 
-fn today() -> String {
+fn today() -> NaiveDate {
     let local = Local::now();
-    format!("{}-{}-{}", local.year(), local.month(), local.day())
+    local.naive_local().date()
 }
 
 fn write_status_file(filepath: String, status_file: StatusFile) -> Result<(), anyhow::Error> {
@@ -97,7 +97,7 @@ fn write_status_file(filepath: String, status_file: StatusFile) -> Result<(), an
 fn status_to_string(status_file: StatusFile) -> String {
     let mut content = String::new();
     for day in status_file.days {
-        content.push_str(&format!("[{}]\n", day.day));
+        content.push_str(&format!("[{}]\n", day.day.format("%Y-%m-%d")));
         for event in day.events {
             let repo_suffix = match event.repo.as_str() {
                 "" => "".to_string(),
@@ -128,39 +128,58 @@ fn parse_status_file(filename: String) -> Result<StatusFile, anyhow::Error> {
     let mut status_file = StatusFile{
         days: vec![],
     };
+    let mut initialized = false;
     let mut current_day = Day{
-        day: "".to_string(),
+        day: NaiveDate::from_ymd(0, 1, 1),
         events: vec![],
     };
     for line in buf.lines() {
         if line.trim() == "" {
             continue;
-        } else if line.starts_with('[') && line.len() > 11 {
-            let day_str = &line[1..11];
-            if current_day.day.is_empty() {
-                current_day.day = day_str.to_string();
+        }
+        if let Some(day) = parse_day_from_line(line) {
+            if !initialized {
+                initialized = true;
             } else {
                 status_file.days.push(current_day.clone());
-                current_day.day = day_str.to_string();
-                current_day.events = vec![];
             }
+            current_day = Day{
+                day,
+                events: vec![],
+            };
             continue;
-        } else if let Some(stripped) = line.strip_prefix("- TODO: ") {
-            let event = DayEvent{
-                typ: DayEventType::Todo,
-                info: stripped.to_string(),
-                repo: "".to_string(),
-            };
-            current_day.events.push(event);
-        } else if let Some(stripped) = line.strip_prefix("- ") {
-            let event = DayEvent{
-                typ: DayEventType::Issue,
-                info: stripped.to_string(),
-                repo: "".to_string(),
-            };
+        }
+        if let Some(event) = parse_event_from_line(line) {
             current_day.events.push(event);
         }
     }
     status_file.days.push(current_day);
     Ok(status_file)
+}
+
+fn parse_day_from_line(line: &str) -> Option<NaiveDate> {
+    if !line.starts_with('[') {
+        return None
+    }
+    let t_line = line.trim();
+    let date = NaiveDate::parse_from_str(t_line, "[%Y-%m-%d]").unwrap();
+    Some(date)
+}
+
+fn parse_event_from_line(line: &str) -> Option<DayEvent> {
+    if let Some(stripped) = line.strip_prefix("- TODO: ") {
+        return Some(DayEvent{
+            typ: DayEventType::Todo,
+            info: stripped.to_string(),
+            repo: "".to_string(),
+        })
+    }
+    if let Some(stripped) = line.strip_prefix("- ") {
+        return Some(DayEvent{
+            typ: DayEventType::Issue,
+            info: stripped.to_string(),
+            repo: "".to_string(),
+        })
+    }
+    None
 }
