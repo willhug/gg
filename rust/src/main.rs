@@ -295,6 +295,7 @@ fn delete_branch(branch: String) {
     Command::new("git")
         .arg("branch")
         .arg("-D")
+        .arg("-r")
         .arg(branch)
         .output()
         .expect("failed to delete branch");
