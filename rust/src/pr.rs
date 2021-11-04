@@ -52,7 +52,7 @@ fn get_template_for_pr() -> String {
 fn get_git_log_from_base_branch(core_branch: String) -> String {
     let out = match Command::new("git")
             .arg("log")
-            .arg("--pretty=%s%+b")
+            .arg("--pretty=%s%n%+b")
             .arg(format!("origin/{}..HEAD", core_branch))
             .output() {
                 Ok(output) => output,
