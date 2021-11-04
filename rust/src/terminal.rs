@@ -85,7 +85,7 @@ impl App {
             selected_issue: 0,
         }
     }
- 
+
     fn down(&mut self) {
         if self.selection < self.issues.len() - 1 {
             self.selection+=1;
@@ -168,7 +168,7 @@ pub async fn start_terminal() -> Result<(), Box<dyn Error>> {
             Event::Input(input) => {
                 match app.input_state {
                     InputState::Normal => match input {
-                        Key::Char('q') => {
+                        Key::Esc | Key::Ctrl('c') | Key::Char('q') => {
                             break;
                         },
                         Key::Char('j') | Key::Down => {
@@ -202,6 +202,9 @@ pub async fn start_terminal() -> Result<(), Box<dyn Error>> {
                         }
                     },
                     InputState::Create => match input {
+                        Key::Esc | Key::Ctrl('c') => {
+                            app.set_input_state(InputState::Normal);
+                        },
                         Key::Backspace => {
                             app.buffered_issue_title.pop();
                         },
@@ -213,9 +216,6 @@ pub async fn start_terminal() -> Result<(), Box<dyn Error>> {
                         Key::Char(c) => {
                             app.buffered_issue_title.push(c);
                         }
-                        Key::Esc => {
-                            app.set_input_state(InputState::Normal);
-                        },
                         _ => {},
                     },
                 }
