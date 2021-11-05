@@ -23,7 +23,7 @@ pub struct SavedConfig {
     pub repo_main_branch: String,
     pub linked_issue: Option<i64>,
     pub branch_prefix: String,
-} 
+}
 
 pub fn get_full_config() -> FullConfig {
     FullConfig {

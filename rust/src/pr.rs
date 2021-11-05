@@ -1,4 +1,4 @@
-use crate::{color, config};
+use crate::{color, config, issues};
 use crate::file;
 use octocrab::Octocrab;
 use octocrab::models::IssueState;
@@ -15,7 +15,7 @@ pub async fn create_pr(full_branch: String) -> anyhow::Result<()> {
     let cfg = config::get_full_config();
     let octo = Octocrab::builder().personal_token(cfg.github_token).build().map_err(anyhow::Error::msg)?;
 
-    let (title, body) = get_title_and_body();
+    let (title, body) = get_title_and_body().await;
     let res = octo.pulls(cfg.repo_org, cfg.repo_name)
         .create(title, full_branch, cfg.saved.repo_main_branch)
         .body(body)
@@ -29,13 +29,13 @@ pub async fn create_pr(full_branch: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn get_title_and_body() -> (String, String) {
-    let res = file::open_vim(get_template_for_pr());
+async fn get_title_and_body() -> (String, String) {
+    let res = file::open_vim(get_template_for_pr().await);
     let (title, body) = res.split_once("\n").expect("wanted at least two lines");
     (title.to_string(), body.to_string())
 }
 
-fn get_template_for_pr() -> String {
+async fn get_template_for_pr() -> String {
     let cfg = config::get_full_config();
     let mut template = get_git_log_from_base_branch(cfg.saved.repo_main_branch);
 
@@ -43,7 +43,13 @@ fn get_template_for_pr() -> String {
         Some(0) => {},
         None => {},
         Some(x) => {
-            template.push_str(format!("\n\nResolves Issue: github.com/{}/{}/issues/{}", cfg.repo_org, cfg.repo_name, x).as_str());
+            let issue = issues::get_issue(x).await.unwrap();
+            template.push_str(format!("\n\nResolves Issue: [{}](https://github.com/{}/{}/issues/{})",
+                issue.title,
+                cfg.repo_org,
+                cfg.repo_name,
+                x,
+            ).as_str());
         }
     }
     template
