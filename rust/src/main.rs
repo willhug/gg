@@ -259,7 +259,7 @@ fn fetch_main() {
 }
 
 fn fixup_main() {
-    // TODO USE START/END BRANCHES 
+    // TODO USE START/END BRANCHES
     let cfg = config::get_full_config();
     Command::new("git")
             .arg("rebase")
