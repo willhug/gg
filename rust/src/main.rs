@@ -293,6 +293,13 @@ fn checkout_main() {
 
 fn delete_branch(branch: String) {
     Command::new("git")
+        .arg("push")
+        .arg("origin")
+        .arg("-d")
+        .arg(branch.clone())
+        .output()
+        .ok();
+    Command::new("git")
         .arg("branch")
         .arg("-D")
         .arg("-r")
