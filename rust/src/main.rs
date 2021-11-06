@@ -302,6 +302,12 @@ fn delete_branch(branch: String) {
     Command::new("git")
         .arg("branch")
         .arg("-D")
+        .arg(branch.clone())
+        .output()
+        .expect("failed to delete branch");
+    Command::new("git")
+        .arg("branch")
+        .arg("-D")
         .arg("-r")
         .arg(branch)
         .output()
