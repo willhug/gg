@@ -297,19 +297,19 @@ fn delete_branch(branch: String) {
         .arg("origin")
         .arg("-d")
         .arg(branch.clone())
-        .output()
+        .status()
         .ok();
     Command::new("git")
         .arg("branch")
         .arg("-D")
         .arg(branch.clone())
-        .output()
+        .status()
         .expect("failed to delete branch");
     Command::new("git")
         .arg("branch")
         .arg("-D")
         .arg("-r")
         .arg(branch)
-        .output()
+        .status()
         .expect("failed to delete branch");
 }
