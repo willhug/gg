@@ -5,6 +5,7 @@ mod issues;
 mod file;
 mod terminal;
 mod status;
+mod pomodoro;
 use std::{io::{self, Read, Write}, process::Command};
 use std::str::from_utf8;
 use structopt::{StructOpt};
@@ -55,8 +56,13 @@ enum Cmd {
     Terminal {},
     #[structopt(about = "Manage status/daily record info")]
     Status(StatusSubcommand),
+    #[structopt(about = "Starts a pomodoro clock")]
+    Pomodoro {
+        #[structopt(short,long, default_value = "25")]
+        duration_mins: u32
+    },
     #[structopt(about = "dumps debug info")]
-    Debug {}, 
+    Debug {},
 }
 
 #[derive(StructOpt, Debug)]
@@ -161,6 +167,9 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         },
         Cmd::Init {  } => {
             config::get_full_config();
+        },
+        Cmd::Pomodoro { duration_mins } => {
+            pomodoro::run_pomodoro(duration_mins);
         },
     }
     Ok(())
