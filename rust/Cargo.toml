@@ -19,3 +19,5 @@ tui = "0.16"
 structopt = { version = "0.3", default-features = false }
 chrono = "0.4"
 open = "*"
+crossterm = "0.22"
+ansi-escapes = "0.1.0"
