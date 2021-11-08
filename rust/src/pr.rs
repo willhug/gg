@@ -1,4 +1,4 @@
-use crate::{color, config, issues};
+use crate::{color, config, issues::GithubRepo};
 use crate::file;
 use octocrab::Octocrab;
 use octocrab::models::IssueState;
@@ -37,17 +37,20 @@ async fn get_title_and_body() -> (String, String) {
 
 async fn get_template_for_pr() -> String {
     let cfg = config::get_full_config();
-    let mut template = get_git_log_from_base_branch(cfg.saved.repo_main_branch);
+    let linked_issue = cfg.saved.linked_issue;
+    let main_branch = cfg.saved.repo_main_branch.clone();
+    let github = GithubRepo::new(cfg).await;
+    let mut template = get_git_log_from_base_branch(main_branch);
 
-    match cfg.saved.linked_issue {
+    match linked_issue {
         Some(0) => {},
         None => {},
         Some(x) => {
-            let issue = issues::get_issue(x).await.unwrap();
+            let issue = github.get_issue(x).await.unwrap();
             template.push_str(format!("\n\nResolves Issue: [{}](https://github.com/{}/{}/issues/{})",
                 issue.title,
-                cfg.repo_org,
-                cfg.repo_name,
+                github.org,
+                github.repo,
                 x,
             ).as_str());
         }

@@ -17,6 +17,7 @@ pub fn run_pomodoro(duration_min: u32) {
         stdout.queue(cursor::RestorePosition).unwrap();
         stdout.flush().unwrap();
     }
+    // Beep 10 times
     for _ in 1..10 {
         print!("{}", Beep);
         thread::sleep(time::Duration::from_secs(1));

@@ -7,7 +7,7 @@ use termion::input::TermRead;
 use tui::widgets::{Block, Borders, List};
 use tui::layout::{Layout, Constraint, Direction};
 
-use crate::{config, issues::{self, get_issues}};
+use crate::{config::{self, get_full_config}, issues::GithubRepo};
 
 pub enum Event<I> {
     Input(I),
@@ -73,16 +73,18 @@ struct App {
     input_state: InputState,
     buffered_issue_title: String,
     selected_issue: i64,
+    github: GithubRepo
 }
 
 impl App {
-    async fn new() -> App {
+    async fn new(github: GithubRepo) -> App {
         App {
-            issues: get_issues().await.unwrap(),
+            issues: github.get_issues().await.unwrap(),
             selection: 0,
             input_state: InputState::Normal,
             buffered_issue_title: String::new(),
             selected_issue: 0,
+            github,
         }
     }
 
@@ -99,7 +101,7 @@ impl App {
     }
 
     async fn update(&mut self) {
-        let issues = get_issues().await.unwrap();
+        let issues = self.github.get_issues().await.unwrap();
         self.issues = issues;
         if self.selection >= self.issues.len() {
             self.selection = self.issues.len() - 1
@@ -107,7 +109,7 @@ impl App {
         self.selected_issue = config::get_selected_issue_number();
     }
 
-    fn get_selected(&mut self) -> &Issue {
+    fn get_selected(&self) -> &Issue {
         self.issues.get(self.selection).unwrap()
     }
 
@@ -125,7 +127,8 @@ pub async fn start_terminal() -> Result<(), Box<dyn Error>> {
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     let events = Events::new();
-    let mut app = App::new().await;
+    let github = GithubRepo::new(get_full_config()).await;
+    let mut app = App::new(github).await;
 
 
     loop {
@@ -187,7 +190,7 @@ pub async fn start_terminal() -> Result<(), Box<dyn Error>> {
                         },
                         Key::Char('d') => {
                             let i = app.get_selected();
-                            issues::close_issue(i.number).await?;
+                            app.github.close_issue(i.number).await?;
                             app.update().await;
                         },
                         Key::Char('c') => {
@@ -209,7 +212,7 @@ pub async fn start_terminal() -> Result<(), Box<dyn Error>> {
                             app.buffered_issue_title.pop();
                         },
                         Key::Char('\n') => {
-                            issues::create_issue(app.buffered_issue_title.clone().as_str(), "").await?;
+                            app.github.create_issue(app.buffered_issue_title.clone().as_str(), "").await?;
                             app.set_input_state(InputState::Normal);
                             app.update().await;
                         },

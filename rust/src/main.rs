@@ -8,6 +8,7 @@ mod status;
 mod pomodoro;
 use std::{io::{self, Read, Write}, process::Command};
 use std::str::from_utf8;
+use issues::GithubRepo;
 use structopt::{StructOpt};
 
 #[derive(StructOpt)]
@@ -118,6 +119,7 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         },
         Cmd::Land {} => {
             let cfg = config::get_full_config();
+            let github = GithubRepo::new(cfg).await;
             let branch = current_branch();
             pr::land_pr(branch.clone()).await.expect("error landing PR");
             fetch_main();
@@ -125,12 +127,12 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             delete_branch(branch);
             let selected_issue = config::get_selected_issue_number();
             if selected_issue > 0 {
-                let issue = issues::get_issue(selected_issue).await?;
-                print!("Close issue '{}' github.com/{}/{}/issues/{}?\n[y/n]: ", issue.title, cfg.repo_org, cfg.repo_name, selected_issue);
+                let issue = github.get_issue(selected_issue).await?;
+                print!("Close issue '{}' github.com/{}/{}/issues/{}?\n[y/n]: ", issue.title, github.org, github.repo, selected_issue);
                 io::stdout().flush().unwrap();
                 let res = std::io::stdin().bytes().next().and_then(|result| result.ok()).unwrap() as char;
                 if res == 'y' {
-                    issues::close_issue(selected_issue).await?;
+                    github.close_issue(selected_issue).await?;
                     config::update_selected_issue(0);
                 }
             }
@@ -139,12 +141,14 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             rebase(interactive);
         },
         Cmd::Issue(issue) => {
+            let cfg = config::get_full_config();
+            let github = GithubRepo::new(cfg).await;
             match issue {
                 IssueSubcommand::Create { title} => {
-                    issues::create_issue(title.as_str(), "").await.expect("error creating");
+                    github.create_issue(title.as_str(), "").await.expect("error creating");
                 }
                 IssueSubcommand::List {} => {
-                    issues::list_issues().await.expect("error creating");
+                    github.list_issues().await.expect("error creating");
                 }
             }
         },
