@@ -1,14 +1,14 @@
 mod color;
 mod pr;
 mod config;
-mod issues;
+mod github;
 mod file;
 mod terminal;
 mod status;
 mod pomodoro;
 use std::{io::{self, Read, Write}, process::Command};
 use std::str::from_utf8;
-use issues::GithubRepo;
+use github::GithubRepo;
 use structopt::{StructOpt};
 
 #[derive(StructOpt)]

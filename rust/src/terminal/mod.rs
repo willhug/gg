@@ -7,7 +7,7 @@ use termion::input::TermRead;
 use tui::widgets::{Block, Borders, List};
 use tui::layout::{Layout, Constraint, Direction};
 
-use crate::{config::{self, get_full_config}, issues::GithubRepo};
+use crate::{config::{self, get_full_config}, github::GithubRepo};
 
 pub enum Event<I> {
     Input(I),
