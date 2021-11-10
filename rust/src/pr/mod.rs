@@ -1,4 +1,4 @@
-use crate::{color, config, issues::GithubRepo};
+use crate::{color, config, github::GithubRepo};
 use crate::file;
 use octocrab::Octocrab;
 use octocrab::models::IssueState;
