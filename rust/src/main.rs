@@ -105,7 +105,9 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         Cmd::Pr {} => {
             let branch = current_branch();
             push(branch.clone(), true);
-            github::pr::create_pr(branch).await.expect("error creating PR");
+            let cfg = config::get_full_config();
+            let github = GithubRepo::new(cfg).await;
+            github.create_pr(branch).await.expect("error creating PR");
         },
         Cmd::Fetch {} => {
             fetch_main();
@@ -120,7 +122,7 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             let cfg = config::get_full_config();
             let github = GithubRepo::new(cfg).await;
             let branch = current_branch();
-            github::pr::land_pr(branch.clone()).await.expect("error landing PR");
+            github.land_pr(branch.clone()).await.expect("error landing PR");
             fetch_main();
             checkout_main();
             delete_branch(branch);
@@ -185,8 +187,10 @@ async fn log(all: bool) {
     } else {
         branches.push(current_branch());
     }
+    let cfg = config::get_full_config();
+    let github = GithubRepo::new(cfg).await;
     for branch in branches {
-        github::pr::pr_statuses(branch).await.expect("error seeing PR");
+        github.pr_statuses(branch).await.expect("error seeing PR");
     }
 }
 
