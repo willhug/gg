@@ -1,5 +1,4 @@
 mod color;
-mod pr;
 mod config;
 mod github;
 mod file;
@@ -106,7 +105,7 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         Cmd::Pr {} => {
             let branch = current_branch();
             push(branch.clone(), true);
-            pr::create_pr(branch).await.expect("error creating PR");
+            github::pr::create_pr(branch).await.expect("error creating PR");
         },
         Cmd::Fetch {} => {
             fetch_main();
@@ -121,7 +120,7 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             let cfg = config::get_full_config();
             let github = GithubRepo::new(cfg).await;
             let branch = current_branch();
-            pr::land_pr(branch.clone()).await.expect("error landing PR");
+            github::pr::land_pr(branch.clone()).await.expect("error landing PR");
             fetch_main();
             checkout_main();
             delete_branch(branch);
@@ -187,7 +186,7 @@ async fn log(all: bool) {
         branches.push(current_branch());
     }
     for branch in branches {
-        pr::pr_statuses(branch).await.expect("error seeing PR");
+        github::pr::pr_statuses(branch).await.expect("error seeing PR");
     }
 }
 
