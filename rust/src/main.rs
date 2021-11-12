@@ -1,12 +1,12 @@
 mod color;
 mod config;
+mod git;
 mod github;
 mod file;
 mod terminal;
 mod status;
 mod pomodoro;
-use std::{io::{self, Read, Write}, process::Command};
-use std::str::from_utf8;
+use std::{io::{self, Read, Write}};
 use github::GithubRepo;
 use structopt::{StructOpt};
 
@@ -54,6 +54,8 @@ enum Cmd {
     Issue(IssueSubcommand),
     #[structopt(about = "open a tui terminal to view issues")]
     Terminal {},
+    #[structopt(about = "Open a tui terminal for branches record info")]
+    Branches {},
     #[structopt(about = "Manage status/daily record info")]
     Status(StatusSubcommand),
     #[structopt(about = "Starts a pomodoro clock")]
@@ -97,23 +99,23 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
     let opt = GG::from_args();
     match opt.cmd {
         Cmd::New { feature } => {
-            new(feature.as_str());
+            git::new(feature.as_str());
         },
         Cmd::Push { force} => {
-            push(current_branch(), force);
+            git::push(git::current_branch(), force);
         },
         Cmd::Pr {} => {
-            let branch = current_branch();
-            push(branch.clone(), true);
+            let branch = git::current_branch();
+            git::push(branch.clone(), true);
             let cfg = config::get_full_config();
             let github = GithubRepo::new(cfg).await;
             github.create_pr(branch).await.expect("error creating PR");
         },
         Cmd::Fetch {} => {
-            fetch_main();
+            git::fetch_main();
         },
         Cmd::Fixup {} => {
-            fixup_main();
+            git::fixup_main();
         },
         Cmd::Log { all } => {
             log(all).await;
@@ -121,11 +123,11 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         Cmd::Land {} => {
             let cfg = config::get_full_config();
             let github = GithubRepo::new(cfg).await;
-            let branch = current_branch();
+            let branch = git::current_branch();
             github.land_pr(branch.clone()).await.expect("error landing PR");
-            fetch_main();
-            checkout_main();
-            delete_branch(branch);
+            git::fetch_main();
+            git::checkout_main();
+            git::delete_branch(branch);
             let selected_issue = config::get_selected_issue_number();
             if selected_issue > 0 {
                 let issue = github.get_issue(selected_issue).await?;
@@ -139,7 +141,7 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             }
         },
         Cmd::Rebase { interactive } => {
-            rebase(interactive);
+            git::rebase(interactive);
         },
         Cmd::Issue(issue) => {
             let cfg = config::get_full_config();
@@ -152,6 +154,9 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
                     github.list_issues().await.expect("error creating");
                 }
             }
+        },
+        Cmd::Branches {  } => {
+            terminal::start_pr_terminal().await.unwrap();
         },
         Cmd::Terminal {} => {
             terminal::start_terminal().await.unwrap();
@@ -183,149 +188,14 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
 async fn log(all: bool) {
     let mut branches = vec![];
     if all {
-        branches = all_branches();
+        branches = git::all_branches();
     } else {
-        branches.push(current_branch());
+        branches.push(git::current_branch());
     }
     let cfg = config::get_full_config();
     let github = GithubRepo::new(cfg).await;
     for branch in branches {
-        github.pr_statuses(branch).await.expect("error seeing PR");
+        github.pr_status(branch).await.expect("error seeing PR");
     }
 }
 
-
-fn new(chosen_name: &str) {
-    let branch: String = ["wh", chosen_name].join("/");
-    Command::new("git")
-            .arg("checkout")
-            .arg("-b")
-            .arg(branch)
-            .output()
-            .expect("failed to create branch");
-}
-
-fn all_branches() -> Vec<String> {
-    let cfg = config::get_full_config();
-    let out = match Command::new("git")
-            .arg("branch")
-            .output() {
-                Ok(output) => output,
-                Err(_e) => panic!("error!")
-    };
-    let x: &[_] = &[' ', '\t', '\n', '\r', '*'];
-    let result = from_utf8(&out.stdout)
-        .expect("msg")
-        .trim_end_matches(x);
-    let mut branches = vec![];
-    for line in result.split('\n') {
-        let trimmed_line = line.trim_matches(x);
-        if trimmed_line.starts_with(cfg.saved.branch_prefix.as_str()) {
-            branches.push(trimmed_line.to_string());
-        }
-    }
-    branches
-}
-
-fn current_branch() -> String {
-    let out = match Command::new("git")
-            .arg("rev-parse")
-            .arg("--abbrev-ref")
-            .arg("HEAD")
-            .output() {
-                Ok(output) => output,
-                Err(_e) => panic!("error!")
-    };
-    let x: &[_] = &[' ', '\t', '\n', '\r'];
-    let result = from_utf8(&out.stdout)
-        .expect("msg")
-        .trim_end_matches(x);
-    result.to_string()
-}
-
-fn push(full_branch: String, force: bool) {
-    let mut command = Command::new("git");
-    let c = command.arg("push");
-
-    if force {
-        c.arg("-f");
-    }
-
-    let res = c.arg("origin")
-     .arg(full_branch)
-     .status()
-     .expect("did not get successful response.");
-
-     if res.success() {
-         println!("{}", color::bold(color::green("Success!")));
-     } else {
-         println!("{}", color::bold(color::red("Error pushing! (try '-f')")))
-     }
-}
-
-fn fetch_main() {
-    let cfg = config::get_saved_config();
-    Command::new("git")
-            .arg("fetch")
-            .arg("-p")
-            .arg("origin")
-            .arg(cfg.repo_main_branch)
-            .output()
-            .expect("failed to fetch main branch");
-}
-
-fn fixup_main() {
-    // TODO USE START/END BRANCHES
-    let cfg = config::get_full_config();
-    Command::new("git")
-            .arg("rebase")
-            .arg("-i")
-            .arg(format!("origin/{}",cfg.saved.repo_main_branch))
-            .status()
-            .expect("failed to fixup main branch");
-}
-
-fn rebase(interactive: bool) {
-    let cfg = config::get_saved_config();
-    let mut com = Command::new("git");
-    let c = com.arg("rebase");
-    if interactive {
-        c.arg("-i");
-    }
-
-    c.arg(format!("origin/{}", cfg.repo_main_branch))
-            .output()
-            .expect("failed to rebase");
-}
-
-fn checkout_main() {
-    let cfg = config::get_saved_config();
-    Command::new("git")
-        .arg("checkout")
-        .arg(format!("origin/{}", cfg.repo_main_branch))
-        .output()
-        .expect("failed to checkout main");
-}
-
-fn delete_branch(branch: String) {
-    Command::new("git")
-        .arg("push")
-        .arg("origin")
-        .arg("-d")
-        .arg(branch.clone())
-        .status()
-        .ok();
-    Command::new("git")
-        .arg("branch")
-        .arg("-D")
-        .arg(branch.clone())
-        .status()
-        .expect("failed to delete branch");
-    Command::new("git")
-        .arg("branch")
-        .arg("-D")
-        .arg("-r")
-        .arg(branch)
-        .status()
-        .expect("failed to delete branch");
-}

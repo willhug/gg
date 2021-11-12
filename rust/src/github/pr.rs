@@ -7,7 +7,7 @@ use std::str::from_utf8;
 
 impl GithubRepo {
     pub async fn create_pr(&self, full_branch: String) -> anyhow::Result<()> {
-        let existing_pr = self.pr_for_branch(full_branch.clone()).await?;
+        let existing_pr = self.pr_for_branch(&full_branch).await?;
         if let Some(pr) = existing_pr {
             println!("PR Already exists! {}", pr.html_url);
             return Ok(())
@@ -72,13 +72,13 @@ impl GithubRepo {
         result.to_string()
     }
 
-    pub async fn pr_statuses(&self, full_branch: String) -> anyhow::Result<()> {
-        let pr = self.pr_for_branch(full_branch.clone()).await?;
+    pub async fn pr_status(&self, full_branch: String) -> anyhow::Result<()> {
+        let pr = self.pr_for_branch(&full_branch).await?;
         self.print_pull(pr, full_branch);
         Ok(())
     }
 
-    async fn pr_for_branch(&self, branch: String) -> anyhow::Result<Option<PullRequest>> {
+    pub async fn pr_for_branch(&self, branch: &String) -> anyhow::Result<Option<PullRequest>> {
         let hub_head = format!("{}:{}", self.org, branch);
         let pulls = self.octo.pulls(self.org.clone(), self.repo.clone())
             .list()
@@ -113,7 +113,7 @@ impl GithubRepo {
     }
 
     pub async fn land_pr(&self, full_branch: String) -> anyhow::Result<()> {
-        let pr = self.pr_for_branch(full_branch).await?.expect("want be there");
+        let pr = self.pr_for_branch(&full_branch).await?.expect("want be there");
 
         // TODO ADD TESTS CHECK
 
