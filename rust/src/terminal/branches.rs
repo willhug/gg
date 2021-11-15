@@ -1,6 +1,6 @@
 use std::error::Error;
 use termion::event::Key;
-use tui::{Frame, backend::Backend, layout::{Constraint, Direction, Layout}, style::{Color, Style}, text::{Span, Spans}, widgets::{Block, Borders, List, ListItem}};
+use tui::{Frame, backend::Backend, layout::{Constraint, Direction, Layout}, style::{Color, Style}, widgets::{Block, Borders, Cell, Row, Table}};
 use async_trait::async_trait;
 
 use crate::{git, github::GithubRepo};
@@ -12,6 +12,26 @@ struct BranchWithInfo {
     branch: String,
     current: bool,
     pr: Option<octocrab::models::pulls::PullRequest>,
+}
+
+impl BranchWithInfo {
+    fn to_row(&self, selected: bool) -> Row {
+        let mut style = Style::default();
+        if selected {
+            style = Style::default().bg(Color::LightGreen);
+        }
+        Row::new(vec![
+            match self.current {
+                true => Cell::from("*").style(style.fg(Color::Red)),
+                false => Cell::from(" "),
+            },
+            Cell::from(self.branch.as_str()).style(style.fg(Color::Blue)),
+            match &self.pr {
+                Some(pull) => Cell::from(pull.html_url.as_str()).style(style.fg(Color::LightBlue)),
+                None => Cell::from("N/A").style(style.fg(Color::Red)),
+            },
+        ]).style(style)
+    }
 }
 
 pub(super) struct PullApp {
@@ -76,16 +96,16 @@ impl App for PullApp {
                 Constraint::Percentage(100),
             ].as_ref())
             .split(f.size());
-        let items: Vec<ListItem> = self.pulls.iter().enumerate().map(|(idx, i)| {
-            let mut style = Style::default();
-            if idx == self.selection {
-                style = Style::default().bg(Color::LightGreen);
-            }
-            ListItem::new(Spans::from(vec![
-                Span::styled(i.branch.as_str(), style.fg(Color::Blue)),
-            ]))
+        if self.pulls.is_empty() {
+            f.render_widget(Block::default().borders(Borders::ALL).title("No Branches"), chunks[0]);
+            return
+        }
+        let items: Vec<Row> = self.pulls.iter().enumerate().map(|(idx, i)| {
+            i.to_row(idx == self.selection)
         }).collect();
-        let block = List::new(items)
+        let block = Table::new(items)
+            .widths(&[Constraint::Length(1), Constraint::Length(50), Constraint::Length(50)])
+            .column_spacing(1)
             .block(Block::default().borders(Borders::ALL).title("Branches"));
         f.render_widget(block, chunks[0]);
     }
