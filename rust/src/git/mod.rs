@@ -109,9 +109,13 @@ pub(crate) fn rebase(interactive: bool) {
 
 pub(crate) fn checkout_main() {
     let cfg = config::get_saved_config();
+    checkout(&format!("origin/{}", cfg.repo_main_branch));
+}
+
+pub(crate) fn checkout(branch: &String) {
     Command::new("git")
         .arg("checkout")
-        .arg(format!("origin/{}", cfg.repo_main_branch))
+        .arg(branch)
         .output()
         .expect("failed to checkout main");
 }

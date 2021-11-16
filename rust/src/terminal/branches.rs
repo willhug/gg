@@ -43,6 +43,16 @@ pub(super) struct PullApp {
 
 impl PullApp {
     pub(super) async fn new(github: GithubRepo) -> PullApp {
+        let mut p = PullApp {
+            pulls: vec![],
+            selection: 0,
+            github,
+        };
+        p.load_branch_infos().await;
+        p
+    }
+
+    async fn load_branch_infos(&mut self) {
         let branches = git::all_branches();
         let current_branch = git::current_branch();
         let mut branch_infos = vec![];
@@ -50,7 +60,7 @@ impl PullApp {
             branch_infos.push(
                 BranchWithInfo {
                     current: branch == current_branch,
-                    pr: match github.pr_for_branch(&branch).await{
+                    pr: match self.github.pr_for_branch(&branch).await{
                         Ok(res) => res,
                         Err(_) => None,
                     },
@@ -58,11 +68,7 @@ impl PullApp {
                 },
             );
         }
-        PullApp {
-            pulls: branch_infos,
-            selection: 0,
-            github,
-        }
+        self.pulls = branch_infos;
     }
 
     fn down(&mut self) {
@@ -86,6 +92,7 @@ impl App for PullApp {
         if self.selection >= self.pulls.len() {
             self.selection = self.pulls.len() - 1
         }
+        self.load_branch_infos().await;
     }
 
     fn draw<B: Backend>(&self, f: &mut Frame<B>) {
@@ -120,6 +127,11 @@ impl App for PullApp {
             },
             Key::Char('k') | Key::Up => {
                 self.up();
+            },
+            Key::Char('c') => {
+                let selected_branch = &self.pulls[self.selection];
+                git::checkout(&selected_branch.branch);
+                self.update().await;
             },
             _ => {
                 println!("Unknown input!");
