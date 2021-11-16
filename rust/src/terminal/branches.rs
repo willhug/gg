@@ -133,6 +133,15 @@ impl App for PullApp {
                 git::checkout(&selected_branch.branch);
                 self.update().await;
             },
+            Key::Char('\n') => {
+                let i = &self.pulls[self.selection];
+                match &i.pr {
+                    Some(pr) => {
+                        open::that(&pr.html_url.as_str()).unwrap();
+                    },
+                    None => {},
+                }
+            }
             _ => {
                 println!("Unknown input!");
             }
