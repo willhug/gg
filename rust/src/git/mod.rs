@@ -2,10 +2,10 @@ use std::str::from_utf8;
 
 use std::process::Command;
 
+use config::get_saved_config;
 use crate::{color, config};
 
-pub(crate) fn new(chosen_name: &str) {
-    let branch: String = ["wh", chosen_name].join("/");
+pub(crate) fn new(branch: &str) {
     Command::new("git")
             .arg("checkout")
             .arg("-b")
@@ -52,7 +52,7 @@ pub(crate) fn current_branch() -> String {
     result.to_string()
 }
 
-pub(crate) fn push(full_branch: String, force: bool) {
+pub(crate) fn push(full_branch: &String, force: bool) {
     let mut command = Command::new("git");
     let c = command.arg("push");
 
@@ -84,12 +84,11 @@ pub(crate) fn fetch_main() {
 }
 
 pub(crate) fn fixup_main() {
-    // TODO USE START/END BRANCHES
-    let cfg = config::get_full_config();
+    let current_branch = current_parsed_branch();
     Command::new("git")
             .arg("rebase")
             .arg("-i")
-            .arg(format!("origin/{}",cfg.saved.repo_main_branch))
+            .arg(current_branch.start())
             .status()
             .expect("failed to fixup main branch");
 }
@@ -121,6 +120,7 @@ pub(crate) fn checkout(branch: &String) {
 }
 
 pub(crate) fn delete_branch(branch: String) {
+    // TODO check for branch existance before deleting.
     Command::new("git")
         .arg("push")
         .arg("origin")
@@ -141,4 +141,117 @@ pub(crate) fn delete_branch(branch: String) {
         .arg(branch)
         .status()
         .expect("failed to delete branch");
+}
+
+
+#[derive(Clone, PartialEq)]
+pub(crate) enum CheckoutDir {
+    Next,
+    Prev,
+    Unknown,
+}
+
+pub(crate) fn get_branch_for_dir(dir: CheckoutDir) -> Option<String> {
+    let parsed_branch = current_parsed_branch();
+    let branches = get_sorted_matching_branches(&parsed_branch);
+    let location = branches.iter().position(|x| x.partx100 == parsed_branch.partx100)?;
+
+    match dir {
+        CheckoutDir::Next => {
+            if branches.len() <= location + 1  {
+                None
+            } else {
+                Some(branches[location + 1].full())
+            }
+        },
+        CheckoutDir::Prev => {
+            if location < 1 {
+                None
+            } else {
+                Some(branches[location-1].full())
+            }
+        },
+        CheckoutDir::Unknown => None,
+    }
+}
+
+pub(crate) fn get_sorted_matching_branches(want: &ParsedBranch) -> Vec<ParsedBranch> {
+    all_branches().into_iter().map(|b| {
+        parse_branch(b)
+    }).filter(|b| {
+        b.base == want.base
+    }).collect()
+}
+
+pub(crate) struct ParsedBranch {
+    pub(crate) prefix: Option<String>,
+    pub(crate) base: String,
+    pub(crate) partx100: Option<u32>,
+}
+
+impl ParsedBranch {
+    pub(crate) fn full(&self) -> String{
+        let parts: Vec<String> = vec![
+            self.prefix.clone(),
+            Some(self.base.clone()),
+            self.partx100.map(|p| format!("part-{:.1}", (p as f32)/100.0)),
+        ].into_iter()
+            .flatten()
+            .collect();
+        parts.join("/")
+    }
+
+    pub(crate) fn start(&self) -> String{
+        let parts: Vec<String> = vec![
+            self.prefix.clone(),
+            Some("starts".to_string()),
+            Some(self.base.clone()),
+            self.partx100.map(|p| format!("part-{:.1}", (p as f32)/100.0)),
+        ].into_iter()
+            .flatten()
+            .collect();
+        parts.join("/")
+    }
+}
+
+pub(crate) fn current_parsed_branch() -> ParsedBranch {
+    parse_branch(current_branch())
+}
+
+pub(crate) fn parse_branch(orig_branch: String) -> ParsedBranch {
+    let prefix = get_saved_config().branch_prefix;
+
+    let mut found_prefix = None;
+    let branch = match orig_branch.split_once(format!("{}/", prefix).as_str()) {
+        Some(res) => {
+            found_prefix = Some(prefix);
+            res.1.to_string()
+        }
+        None => orig_branch.clone(),
+    };
+
+    match branch.split_once("/part-") {
+        Some(res) => {
+            ParsedBranch {
+                prefix: found_prefix,
+                base: res.0.to_string(),
+                partx100: parse_partx100(res.1),
+            }
+        },
+        None => {
+            ParsedBranch {
+                prefix: found_prefix,
+                base: branch.clone(),
+                partx100: None,
+            }
+        },
+    }
+}
+
+pub(crate) fn parse_partx100(part: &str) -> Option<u32> {
+    let fpart: f32 =  match part.parse::<f32>() {
+        Ok(p) => p * 100.0,
+        Err(_) => return None,
+    };
+    Some(fpart as u32)
 }
