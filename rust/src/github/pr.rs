@@ -6,17 +6,18 @@ use std::process::Command;
 use std::str::from_utf8;
 
 impl GithubRepo {
-    pub async fn create_pr(&self, full_branch: String) -> anyhow::Result<()> {
+    pub async fn create_pr(&self, full_branch: String, base: Option<String>) -> anyhow::Result<()> {
         let existing_pr = self.pr_for_branch(&full_branch).await?;
         if let Some(pr) = existing_pr {
             println!("PR Already exists! {}", pr.html_url);
             return Ok(())
         }
         let cfg = config::get_full_config();
+        let base = base.unwrap_or(cfg.saved.repo_main_branch);
 
         let (title, body) = self.get_title_and_body().await;
         let res = self.octo.pulls(cfg.repo_org, cfg.repo_name)
-            .create(title, full_branch, cfg.saved.repo_main_branch)
+            .create(title, full_branch, base)
             .body(body)
             .send()
             .await

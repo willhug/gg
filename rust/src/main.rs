@@ -6,9 +6,14 @@ mod file;
 mod terminal;
 mod status;
 mod pomodoro;
-use std::{io::{self, Read, Write}};
+use std::io::{self, Read, Write};
+use anyhow::Result;
+use config::get_saved_config;
+use git::current_parsed_branch;
 use github::GithubRepo;
 use structopt::{StructOpt};
+
+use crate::git::parse_branch;
 
 #[derive(StructOpt)]
 #[structopt(name="gg", about="A command line tool for organizing tasks and git commits/PRs")]
@@ -22,18 +27,32 @@ struct GG {
 enum Cmd {
     #[structopt(about = "Initialize this repo with the GG Config")]
     Init {},
+    #[structopt(about = "Checkout a branch", alias = "co")]
+    Checkout {
+        #[structopt(short,long)]
+        next: bool,
+        #[structopt(short,long)]
+        prev: bool,
+    },
     #[structopt(about = "Create a new git branch")]
     New {
         #[structopt(short,long)]
-        feature: String
+        feature: Option<String>,
+        #[structopt(short,long)]
+        part: Option<f32>
     },
     #[structopt(about = "Push the current branch to origin")]
     Push {
         #[structopt(short,long)]
-        force: bool
+        force: bool,
+        #[structopt(short,long)]
+        start: bool
     },
     #[structopt(about = "Create a github pr for the current branch")]
-    Pr {},
+    Pr {
+        #[structopt(short = "s", long = "use-start")]
+        use_start: bool
+    },
     #[structopt(about = "Fetch the current master/main.")]
     Fetch {},
     #[structopt(about = "Run a fixup rebase on the current branch.")]
@@ -62,6 +81,13 @@ enum Cmd {
     Pomodoro {
         #[structopt(short,long, default_value = "25")]
         duration_mins: u32
+    },
+    #[structopt(about = "Deletes a branch (current one currently)", alias = "del")]
+    Delete {
+        #[structopt(about = "Branch to delete", short,long)]
+        branch: Option<String>,
+        #[structopt(about = "Branch to checkout", short,long)]
+        dest: Option<String>,
     },
     #[structopt(about = "dumps debug info")]
     Debug {},
@@ -98,18 +124,44 @@ enum StatusSubcommand {
 async fn main() ->  Result<(), Box<dyn std::error::Error>> {
     let opt = GG::from_args();
     match opt.cmd {
-        Cmd::New { feature } => {
-            git::new(feature.as_str());
+        Cmd::New { feature, part } => {
+            let mut branch = git::current_parsed_branch();
+            if let Some(feature) = feature {
+                branch.base = feature;
+            }
+            if let Some(part) = part {
+                let partx100 = (part * 100.0) as u32;
+                branch.partx100 = Some(partx100);
+            } else {
+                branch.partx100 = match branch.partx100 {
+                    Some(p) => Some(p + 100),
+                    None => Some(100), // Default is 1
+                };
+            }
+            git::new(branch.start().as_str());
+            git::new(branch.full().as_str());
         },
-        Cmd::Push { force} => {
-            git::push(git::current_branch(), force);
+        Cmd::Push { force, start} => {
+            let cur = git::current_branch();
+            git::push(&cur, force);
+            if start {
+                let parsed = git::parse_branch(cur);
+                git::push(&parsed.start(), force);
+            }
         },
-        Cmd::Pr {} => {
-            let branch = git::current_branch();
-            git::push(branch.clone(), true);
+        Cmd::Pr { use_start} => {
+            let branch = git::current_parsed_branch();
+            git::push(&branch.full(), true);
             let cfg = config::get_full_config();
             let github = GithubRepo::new(cfg).await;
-            github.create_pr(branch).await.expect("error creating PR");
+            let base = match use_start {
+                true => {
+                    git::push(&branch.start(), true);
+                    Some(branch.start())
+                },
+                false => None,
+            };
+            github.create_pr(branch.full(), base).await.expect("error creating PR");
         },
         Cmd::Fetch {} => {
             git::fetch_main();
@@ -180,6 +232,37 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         },
         Cmd::Pomodoro { duration_mins } => {
             pomodoro::run_pomodoro(duration_mins);
+        },
+        Cmd::Checkout { next, prev } => {
+            let dir = if next {
+                git::CheckoutDir::Next
+            } else if prev {
+                git::CheckoutDir::Prev
+            } else {
+                git::CheckoutDir::Unknown
+            };
+            match git::get_branch_for_dir(dir) {
+                Some(x) => git::checkout(&x),
+                None => println!("No branch found!"),
+            };
+        },
+        Cmd::Delete { branch, dest } => {
+            if branch.is_none() {
+                // Checkout a different branch before deleting ourself.
+                git::checkout(&match dest {
+                    Some(dest) => dest,
+                    None => match git::get_branch_for_dir(git::CheckoutDir::Prev) {
+                        Some(x) => x,
+                        None => format!("origin/{}", get_saved_config().repo_main_branch),
+                    },
+                });
+            }
+            let branch_to_delete = match branch {
+                Some(branch) => parse_branch(branch),
+                None => current_parsed_branch(),
+            };
+            git::delete_branch(branch_to_delete.full());
+            git::delete_branch(branch_to_delete.start());
         },
     }
     Ok(())
