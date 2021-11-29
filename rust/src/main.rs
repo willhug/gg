@@ -126,6 +126,9 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
     match opt.cmd {
         Cmd::New { feature, part } => {
             let mut branch = git::current_parsed_branch();
+            if branch.prefix.is_none() {
+                branch.prefix = Some(config::get_saved_config().branch_prefix);
+            }
             if let Some(feature) = feature {
                 branch.base = feature;
             }
@@ -175,11 +178,12 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         Cmd::Land {} => {
             let cfg = config::get_full_config();
             let github = GithubRepo::new(cfg).await;
-            let branch = git::current_branch();
-            github.land_pr(branch.clone()).await.expect("error landing PR");
+            let branch = git::current_parsed_branch();
+            github.land_pr(branch.full()).await.expect("error landing PR");
             git::fetch_main();
             git::checkout_main();
-            git::delete_branch(branch);
+            git::delete_branch(branch.full());
+            git::delete_branch(branch.start());
             let selected_issue = config::get_selected_issue_number();
             if selected_issue > 0 {
                 let issue = github.get_issue(selected_issue).await?;
