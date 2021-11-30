@@ -251,7 +251,12 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             };
         },
         Cmd::Delete { branch, dest } => {
-            if branch.is_none() {
+            let no_branch = branch.is_none();
+            let branch_to_delete = match branch {
+                Some(branch) => parse_branch(branch),
+                None => current_parsed_branch(),
+            };
+            if no_branch {
                 // Checkout a different branch before deleting ourself.
                 git::checkout(&match dest {
                     Some(dest) => dest,
@@ -261,10 +266,6 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
                     },
                 });
             }
-            let branch_to_delete = match branch {
-                Some(branch) => parse_branch(branch),
-                None => current_parsed_branch(),
-            };
             git::delete_branch(branch_to_delete.full());
             git::delete_branch(branch_to_delete.start());
         },
