@@ -1,6 +1,7 @@
 mod color;
 mod config;
 mod git;
+mod git_rebase;
 mod github;
 mod file;
 mod terminal;
@@ -10,6 +11,7 @@ use std::io::{self, Read, Write};
 use anyhow::Result;
 use config::get_saved_config;
 use git::current_parsed_branch;
+use git_rebase::{abort_rebase, continue_rebase, start_rebase};
 use github::GithubRepo;
 use structopt::{StructOpt};
 
@@ -68,6 +70,17 @@ enum Cmd {
     Rebase {
         #[structopt(short,long)]
         interactive: bool
+    },
+    #[structopt(about = "Rebase the current branch with stacking", alias="rs")]
+    RebaseStack {
+        #[structopt(short,long)]
+        onto: Option<String>,
+        #[structopt(short,long)]
+        strategy: Option<String>,
+        #[structopt(short="a",long="abort")]
+        rebase_abort: bool,
+        #[structopt(short="c",long="continue")]
+        rebase_continue: bool,
     },
     #[structopt(about = "Manage issues")]
     Issue(IssueSubcommand),
@@ -268,6 +281,20 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             }
             git::delete_branch(branch_to_delete.full());
             git::delete_branch(branch_to_delete.start());
+        },
+        Cmd::RebaseStack {
+            onto,
+            strategy,
+            rebase_abort,
+            rebase_continue ,
+        } => {
+            if rebase_abort {
+                abort_rebase();
+            } else if rebase_continue {
+                continue_rebase();
+            } else {
+                start_rebase(onto, strategy);
+            }
         },
     }
     Ok(())

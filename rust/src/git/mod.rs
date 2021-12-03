@@ -119,6 +119,17 @@ pub(crate) fn checkout(branch: &String) {
         .expect("failed to checkout main");
 }
 
+pub(crate) fn reset(branch: String, hard: bool) {
+    let mut c = Command::new("git");
+    c.arg("reset");
+    if hard {
+        c.arg("--hard");
+    }
+    c.arg(branch)
+        .output()
+        .expect("failed to reset");
+}
+
 pub(crate) fn delete_branch(branch: String) {
     // TODO check for branch existance before deleting.
     Command::new("git")
@@ -254,4 +265,48 @@ pub(crate) fn parse_partx100(part: &str) -> Option<u32> {
         Err(_) => return None,
     };
     Some(fpart as u32)
+}
+
+pub(crate) fn cherry_pick(start_ref: String, end_ref: String, strategy: Option<String>) {
+    let mut c = Command::new("git");
+
+    c.arg("cherry-pick")
+        .arg(format!("{}..{}", start_ref, end_ref));
+
+    if let Some(strategy) = strategy {
+        c.arg("--strategy-option").arg(strategy);
+    }
+
+    c.output().expect("Failed to cherry-pick");
+}
+
+pub(crate) fn cherry_abort() {
+    Command::new("git")
+            .arg("cherry-pick")
+            .arg("--abort")
+            .output()
+            .expect("Failed to cherry-pick");
+}
+
+pub(crate) fn cherry_continue() {
+    Command::new("git")
+            .arg("cherry-pick")
+            .arg("--continue")
+            .output()
+            .expect("Failed to cherry-pick");
+}
+
+pub(crate) fn get_commit_hash(branch: String) -> String {
+    let out = match Command::new("git")
+            .arg("rev-parse")
+            .arg(branch)
+            .output() {
+                Ok(output) => output,
+                Err(_e) => panic!("error!")
+    };
+    let x: &[_] = &[' ', '\t', '\n', '\r'];
+    let result = from_utf8(&out.stdout)
+        .expect("msg")
+        .trim_end_matches(x);
+    result.to_string()
 }
