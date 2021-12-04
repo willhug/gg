@@ -10,7 +10,7 @@ mod pomodoro;
 use std::io::{self, Read, Write};
 use anyhow::Result;
 use config::get_saved_config;
-use git::current_parsed_branch;
+use git::{current_parsed_branch, diff};
 use git_rebase::{abort_rebase, continue_rebase, start_rebase};
 use github::GithubRepo;
 use structopt::{StructOpt};
@@ -102,6 +102,8 @@ enum Cmd {
         #[structopt(about = "Branch to checkout", short,long)]
         dest: Option<String>,
     },
+    #[structopt(about = "Shows the current diff for the branch")]
+    Diff {},
     #[structopt(about = "dumps debug info")]
     Debug {},
 }
@@ -295,6 +297,9 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             } else {
                 start_rebase(onto, strategy);
             }
+        },
+        Cmd::Diff {  } => {
+            diff(current_parsed_branch().start(), None);
         },
     }
     Ok(())
