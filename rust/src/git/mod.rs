@@ -310,3 +310,13 @@ pub(crate) fn get_commit_hash(branch: String) -> String {
         .trim_end_matches(x);
     result.to_string()
 }
+
+pub(crate) fn diff(start_ref: String, end_ref: Option<String>) {
+    let mut c = Command::new("git");
+    c.arg("diff");
+    c.arg(match end_ref {
+        Some(end_ref) => format!("{}..{}", start_ref, end_ref),
+        None => start_ref,
+    });
+    c.status().expect("failed to fixup main branch");
+}
