@@ -271,20 +271,22 @@ pub(crate) fn cherry_pick(start_ref: String, end_ref: String, strategy: Option<S
     let mut c = Command::new("git");
 
     c.arg("cherry-pick")
+        .arg("-v")
         .arg(format!("{}..{}", start_ref, end_ref));
 
     if let Some(strategy) = strategy {
         c.arg("--strategy-option").arg(strategy);
     }
 
-    c.output().expect("Failed to cherry-pick");
+    c.status().expect("Failed to cherry-pick");
+
 }
 
 pub(crate) fn cherry_abort() {
     Command::new("git")
             .arg("cherry-pick")
             .arg("--abort")
-            .output()
+            .status()
             .expect("Failed to cherry-pick");
 }
 
@@ -292,23 +294,28 @@ pub(crate) fn cherry_continue() {
     Command::new("git")
             .arg("cherry-pick")
             .arg("--continue")
-            .output()
+            .status()
             .expect("Failed to cherry-pick");
 }
 
 pub(crate) fn get_commit_hash(branch: String) -> String {
-    let out = match Command::new("git")
+    let out = Command::new("git")
             .arg("rev-parse")
-            .arg(branch)
-            .output() {
-                Ok(output) => output,
-                Err(_e) => panic!("error!")
-    };
+            .arg(branch.clone())
+            .output()
+            .expect("error getting hash");
+    if !out.status.success() {
+        panic!("error getting hash {}", branch);
+    }
     let x: &[_] = &[' ', '\t', '\n', '\r'];
     let result = from_utf8(&out.stdout)
         .expect("msg")
         .trim_end_matches(x);
     result.to_string()
+}
+
+pub(crate) fn assert_branch_exists(branch: String) {
+    let _ = get_commit_hash(branch);
 }
 
 pub(crate) fn diff(start_ref: String, end_ref: Option<String>) {

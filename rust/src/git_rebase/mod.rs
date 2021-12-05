@@ -1,4 +1,4 @@
-use crate::git::{parse_branch, ParsedBranch, get_commit_hash, checkout, reset, delete_branch, new, cherry_pick, current_branch, get_branch_for_dir, current_parsed_branch, cherry_abort, cherry_continue};
+use crate::git::{parse_branch, ParsedBranch, get_commit_hash, checkout, reset, delete_branch, new, cherry_pick, current_branch, get_branch_for_dir, current_parsed_branch, cherry_abort, cherry_continue, assert_branch_exists};
 
 
 pub(crate) fn start_rebase(onto: Option<String>, strategy: Option<String>) {
@@ -6,6 +6,7 @@ pub(crate) fn start_rebase(onto: Option<String>, strategy: Option<String>) {
     let onto = onto.unwrap_or_else(|| {
         get_branch_for_dir(crate::git::CheckoutDir::Prev).expect("No previous branch to rebase onto")
     });
+    assert_branch_exists(onto.clone());
     rebase_onto(cur, onto, strategy);
 }
 
@@ -29,6 +30,7 @@ pub(crate) fn continue_rebase() {
 }
 
 fn rebase_onto(branch_to_rebase: TmpBranchWrapper, onto: String, strategy: Option<String>) {
+    println!("Checking out {}", onto);
     checkout(&onto);
     new(branch_to_rebase.tmp_start_branch_name().as_str());
     new(branch_to_rebase.tmp_branch_name().as_str());
@@ -40,7 +42,7 @@ fn rebase_onto(branch_to_rebase: TmpBranchWrapper, onto: String, strategy: Optio
         checkout(&branch_to_rebase.inner.full());
         reset(branch_to_rebase.tmp_branch_name(), true);
     } else {
-        println!("Cherry-picking changes onto new branch");
+        println!("Cherry-picking changes onto branch {}", onto);
         cherry_pick(
             branch_to_rebase.inner.start(),
             branch_to_rebase.inner.full(),

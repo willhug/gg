@@ -243,8 +243,10 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             }
         },
         Cmd::Debug {  } => {
-            let cfg = config::get_full_config();
-            dbg!(cfg);
+            println!("origin/master");
+            git::get_commit_hash("origin/master".to_string());
+            println!("origin/main");
+            git::get_commit_hash("origin/main".to_string());
         },
         Cmd::Init {  } => {
             config::get_full_config();
