@@ -101,9 +101,12 @@ pub(crate) fn rebase(interactive: bool) {
         c.arg("-i");
     }
 
-    c.arg(format!("origin/{}", cfg.repo_main_branch))
+    assert!(
+        c.arg(format!("origin/{}", cfg.repo_main_branch))
             .output()
-            .expect("failed to rebase");
+            .expect("failed to rebase")
+            .status.success(),
+    );
 }
 
 pub(crate) fn checkout_main() {
@@ -112,11 +115,14 @@ pub(crate) fn checkout_main() {
 }
 
 pub(crate) fn checkout(branch: &String) {
-    Command::new("git")
-        .arg("checkout")
-        .arg(branch)
-        .output()
-        .expect("failed to checkout main");
+    assert!(
+        Command::new("git")
+            .arg("checkout")
+            .arg(branch)
+            .output()
+            .expect("failed to checkout main")
+            .status.success()
+    );
 }
 
 pub(crate) fn reset(branch: String, hard: bool) {
@@ -278,24 +284,30 @@ pub(crate) fn cherry_pick(start_ref: String, end_ref: String, strategy: Option<S
         c.arg("--strategy-option").arg(strategy);
     }
 
-    c.status().expect("Failed to cherry-pick");
+    assert!(c.status().expect("Failed to cherry-pick").success());
 
 }
 
 pub(crate) fn cherry_abort() {
-    Command::new("git")
+    assert!(
+        Command::new("git")
             .arg("cherry-pick")
             .arg("--abort")
             .status()
-            .expect("Failed to cherry-pick");
+            .expect("Failed to cherry-pick")
+            .success(),
+    );
 }
 
 pub(crate) fn cherry_continue() {
-    Command::new("git")
+    assert!(
+        Command::new("git")
             .arg("cherry-pick")
             .arg("--continue")
             .status()
-            .expect("Failed to cherry-pick");
+            .expect("Failed to cherry-pick")
+            .success()
+    );
 }
 
 pub(crate) fn get_commit_hash(branch: String) -> String {
