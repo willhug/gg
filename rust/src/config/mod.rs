@@ -121,7 +121,7 @@ fn create_saved_config() -> File {
     println!("What will the branch prefix be: ");
     let mut prefix = String::new();
     std::io::stdin().read_line(&mut prefix).unwrap();
-    let prefix = line.trim_end_matches(x);
+    let prefix = prefix.trim_end_matches(x);
 
     let config = SavedConfig {
         repo_main_branch: line.to_string(),
