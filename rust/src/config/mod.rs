@@ -11,7 +11,6 @@ use std::path::{Path, PathBuf};
 pub struct FullConfig {
     pub saved: SavedConfig,
     pub repo_name: String,
-    pub repo_org: String,
     pub current_github_user: String,
     pub github_token: String,
     pub status_file: String,
@@ -23,13 +22,13 @@ pub struct SavedConfig {
     pub repo_main_branch: String,
     pub linked_issue: Option<i64>,
     pub branch_prefix: String,
+    pub repo_org: String,
 }
 
 pub fn get_full_config() -> FullConfig {
     FullConfig {
         saved: get_saved_config(),
         repo_name: get_repo_name(),
-        repo_org: "willhug".to_string(),
         current_github_user: "willhug".to_string(),
         github_token: std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required"),
         status_file: "/home/will/status.txt".to_string(),
@@ -117,16 +116,22 @@ fn create_saved_config() -> File {
 
     let x: &[_] = &[' ', '\t', '\n', '\r'];
     let line = line.trim_end_matches(x);
- 
+
     println!("What will the branch prefix be: ");
     let mut prefix = String::new();
     std::io::stdin().read_line(&mut prefix).unwrap();
     let prefix = prefix.trim_end_matches(x);
 
+    println!("What is the repo org: ");
+    let mut org = String::new();
+    std::io::stdin().read_line(&mut org).unwrap();
+    let org = org.trim_end_matches(x);
+
     let config = SavedConfig {
         repo_main_branch: line.to_string(),
         linked_issue: None,
         branch_prefix: prefix.to_string(), // replace
+        repo_org: org.to_string(),
     };
 
     write_saved_config(config)
