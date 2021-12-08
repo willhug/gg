@@ -16,7 +16,7 @@ impl GithubRepo {
         let base = base.unwrap_or(cfg.saved.repo_main_branch);
 
         let (title, body) = self.get_title_and_body().await;
-        let res = self.octo.pulls(cfg.repo_org, cfg.repo_name)
+        let res = self.octo.pulls(cfg.saved.repo_org, cfg.repo_name)
             .create(title, full_branch, base)
             .body(body)
             .send()

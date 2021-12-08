@@ -14,7 +14,7 @@ pub struct GithubRepo {
 impl GithubRepo {
     pub async fn new(cfg: FullConfig) -> GithubRepo {
         GithubRepo {
-            org: cfg.repo_org,
+            org: cfg.saved.repo_org,
             repo: cfg.repo_name,
             current_user: cfg.current_github_user,
             octo: Octocrab::builder().personal_token(cfg.github_token).build().unwrap(),
