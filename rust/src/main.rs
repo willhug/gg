@@ -67,12 +67,12 @@ enum Cmd {
     #[structopt(about = "Land the current PR")]
     Land {},
     #[structopt(about = "Rebase the current branch onto master/main")]
-    Rebase {
+    RebaseOld {
         #[structopt(short,long)]
         interactive: bool
     },
     #[structopt(about = "Rebase the current branch with stacking", alias="rs")]
-    RebaseStack {
+    Rebase {
         #[structopt(short,long)]
         onto: Option<String>,
         #[structopt(short,long)]
@@ -211,7 +211,7 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
                 }
             }
         },
-        Cmd::Rebase { interactive } => {
+        Cmd::RebaseOld { interactive } => {
             git::rebase(interactive);
         },
         Cmd::Issue(issue) => {
@@ -286,7 +286,7 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             git::delete_branch(branch_to_delete.full());
             git::delete_branch(branch_to_delete.start());
         },
-        Cmd::RebaseStack {
+        Cmd::Rebase {
             onto,
             strategy,
             rebase_abort,
