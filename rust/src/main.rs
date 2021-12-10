@@ -11,7 +11,7 @@ use std::io::{self, Read, Write};
 use anyhow::Result;
 use config::get_saved_config;
 use git::{current_parsed_branch, diff};
-use git_rebase::{abort_rebase, continue_rebase, start_rebase};
+use git_rebase::{abort_rebase, continue_rebase, start_rebase, rebase_all_children};
 use github::GithubRepo;
 use structopt::{StructOpt};
 
@@ -73,6 +73,8 @@ enum Cmd {
     },
     #[structopt(about = "Rebase the current branch with stacking", alias="rs")]
     Rebase {
+        #[structopt(long, about = "rebase all subsequent branches in this stack.")]
+        all: bool,
         #[structopt(short,long)]
         onto: Option<String>,
         #[structopt(short,long)]
@@ -287,6 +289,7 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             git::delete_branch(branch_to_delete.start());
         },
         Cmd::Rebase {
+            all,
             onto,
             strategy,
             rebase_abort,
@@ -294,10 +297,14 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         } => {
             if rebase_abort {
                 abort_rebase();
+                return Ok(())
             } else if rebase_continue {
                 continue_rebase();
             } else {
-                start_rebase(onto, strategy);
+                start_rebase(onto, strategy.clone());
+            }
+            if all {
+                rebase_all_children(strategy);
             }
         },
         Cmd::Diff {  } => {

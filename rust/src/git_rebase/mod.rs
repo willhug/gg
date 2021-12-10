@@ -1,5 +1,14 @@
-use crate::git::{parse_branch, ParsedBranch, get_commit_hash, checkout, reset, delete_branch, new, cherry_pick, current_branch, get_branch_for_dir, current_parsed_branch, cherry_abort, cherry_continue, assert_branch_exists};
+use crate::git::{parse_branch, ParsedBranch, get_commit_hash, checkout, reset, delete_branch, new, cherry_pick, current_branch, get_branch_for_dir, current_parsed_branch, cherry_abort, cherry_continue, assert_branch_exists, get_children_branches};
 
+pub(crate) fn rebase_all_children(strategy: Option<String>) {
+    let cur = current_parsed_branch();
+    let children = get_children_branches(&cur);
+
+    for child in children {
+        checkout(&child.full());
+        start_rebase(None, strategy.clone());
+    }
+}
 
 pub(crate) fn start_rebase(onto: Option<String>, strategy: Option<String>) {
     let cur = TmpBranchWrapper::new(current_parsed_branch());
@@ -30,7 +39,7 @@ pub(crate) fn continue_rebase() {
 }
 
 fn rebase_onto(branch_to_rebase: TmpBranchWrapper, onto: String, strategy: Option<String>) {
-    println!("Checking out {}", onto);
+    println!("Rebasing {} onto {} via cherry-picks", branch_to_rebase.inner.full(), onto);
     checkout(&onto);
     new(branch_to_rebase.tmp_start_branch_name().as_str());
     new(branch_to_rebase.tmp_branch_name().as_str());
