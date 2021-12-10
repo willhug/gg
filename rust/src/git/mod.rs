@@ -192,14 +192,22 @@ pub(crate) fn get_branch_for_dir(dir: CheckoutDir) -> Option<String> {
     }
 }
 
+pub(crate) fn get_children_branches(branch: &ParsedBranch) -> Vec<ParsedBranch> {
+    let branches = get_sorted_matching_branches(branch);
+    branches.into_iter().filter(|x| x.partx100 > branch.partx100).collect()
+}
+
 pub(crate) fn get_sorted_matching_branches(want: &ParsedBranch) -> Vec<ParsedBranch> {
-    all_branches().into_iter().map(|b| {
+    let mut v: Vec<ParsedBranch> = all_branches().into_iter().map(|b| {
         parse_branch(b)
     }).filter(|b| {
         b.base == want.base
-    }).collect()
+    }).collect();
+    v.sort_by(|a, b| a.partx100.cmp(&b.partx100) );
+    v
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct ParsedBranch {
     pub(crate) prefix: Option<String>,
     pub(crate) base: String,
