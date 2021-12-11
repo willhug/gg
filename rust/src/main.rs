@@ -10,7 +10,7 @@ mod pomodoro;
 use std::io::{self, Read, Write};
 use anyhow::Result;
 use config::get_saved_config;
-use git::{current_parsed_branch, diff};
+use git::{current_parsed_branch, diff, get_branch_for_part};
 use git_rebase::{abort_rebase, continue_rebase, start_rebase, rebase_all_children};
 use github::GithubRepo;
 use structopt::{StructOpt};
@@ -35,6 +35,8 @@ enum Cmd {
         next: bool,
         #[structopt(short,long)]
         prev: bool,
+        #[structopt(short="a",long)]
+        part: Option<f32>,
     },
     #[structopt(about = "Create a new git branch")]
     New {
@@ -256,7 +258,17 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         Cmd::Pomodoro { duration_mins } => {
             pomodoro::run_pomodoro(duration_mins);
         },
-        Cmd::Checkout { next, prev } => {
+        Cmd::Checkout { next, prev, part } => {
+            if let Some(part) = part {
+                let br = current_parsed_branch();
+                match get_branch_for_part(&br.base, part) {
+                    Some(br) => git::checkout(&br.full()),
+                    None => {
+                        println!("No branch with part {}", part);
+                    },
+                }
+                return Ok(())
+            }
             let dir = if next {
                 git::CheckoutDir::Next
             } else if prev {
