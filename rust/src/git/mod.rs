@@ -165,14 +165,9 @@ pub(crate) fn delete_branch(branch: String) {
 pub(crate) enum CheckoutDir {
     Next,
     Prev,
+    Start,
+    Part(f32),
     Unknown,
-}
-
-pub(crate) fn get_branch_for_part(base: &str, part: f32) -> Option<ParsedBranch> {
-    let partx100 = partfloat_to_partx100(part);
-    let branches = get_sorted_matching_branches(base);
-    let branch = branches.iter().find(|x| x.partx100.is_some() && x.partx100.unwrap() == partx100)?;
-    Some(branch.clone())
 }
 
 pub(crate) fn get_branch_for_dir(dir: CheckoutDir) -> Option<String> {
@@ -180,6 +175,9 @@ pub(crate) fn get_branch_for_dir(dir: CheckoutDir) -> Option<String> {
     let branches = get_sorted_matching_branches(&parsed_branch.base);
     let location = branches.iter().position(|x| x.partx100 == parsed_branch.partx100)?;
 
+    if branches.is_empty() {
+        return None
+    }
     match dir {
         CheckoutDir::Next => {
             if branches.len() <= location + 1  {
@@ -195,6 +193,15 @@ pub(crate) fn get_branch_for_dir(dir: CheckoutDir) -> Option<String> {
                 Some(branches[location-1].full())
             }
         },
+        CheckoutDir::Start => {
+            Some(branches[0].full())
+        },
+        CheckoutDir::Part(part) => {
+            let partx100 = partfloat_to_partx100(part);
+            branches.iter()
+            .find(|x| x.partx100.is_some() && x.partx100.unwrap() == partx100)
+            .map(|br| br.full())
+        }
         CheckoutDir::Unknown => None,
     }
 }
