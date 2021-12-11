@@ -168,9 +168,16 @@ pub(crate) enum CheckoutDir {
     Unknown,
 }
 
+pub(crate) fn get_branch_for_part(base: &str, part: f32) -> Option<ParsedBranch> {
+    let partx100 = partfloat_to_partx100(part);
+    let branches = get_sorted_matching_branches(base);
+    let branch = branches.iter().find(|x| x.partx100.is_some() && x.partx100.unwrap() == partx100)?;
+    Some(branch.clone())
+}
+
 pub(crate) fn get_branch_for_dir(dir: CheckoutDir) -> Option<String> {
     let parsed_branch = current_parsed_branch();
-    let branches = get_sorted_matching_branches(&parsed_branch);
+    let branches = get_sorted_matching_branches(&parsed_branch.base);
     let location = branches.iter().position(|x| x.partx100 == parsed_branch.partx100)?;
 
     match dir {
@@ -193,15 +200,15 @@ pub(crate) fn get_branch_for_dir(dir: CheckoutDir) -> Option<String> {
 }
 
 pub(crate) fn get_children_branches(branch: &ParsedBranch) -> Vec<ParsedBranch> {
-    let branches = get_sorted_matching_branches(branch);
+    let branches = get_sorted_matching_branches(&branch.base);
     branches.into_iter().filter(|x| x.partx100 > branch.partx100).collect()
 }
 
-pub(crate) fn get_sorted_matching_branches(want: &ParsedBranch) -> Vec<ParsedBranch> {
+pub(crate) fn get_sorted_matching_branches(base: &str) -> Vec<ParsedBranch> {
     let mut v: Vec<ParsedBranch> = all_branches().into_iter().map(|b| {
         parse_branch(b)
     }).filter(|b| {
-        b.base == want.base
+        b.base == base
     }).collect();
     v.sort_by(|a, b| a.partx100.cmp(&b.partx100) );
     v
@@ -274,11 +281,14 @@ pub(crate) fn parse_branch(orig_branch: String) -> ParsedBranch {
 }
 
 pub(crate) fn parse_partx100(part: &str) -> Option<u32> {
-    let fpart: f32 =  match part.parse::<f32>() {
-        Ok(p) => p * 100.0,
-        Err(_) => return None,
-    };
-    Some(fpart as u32)
+    match part.parse::<f32>() {
+        Ok(p) => Some(partfloat_to_partx100(p)),
+        Err(_) => None,
+    }
+}
+
+fn partfloat_to_partx100(part: f32) -> u32 {
+    (part * 100.0) as u32
 }
 
 pub(crate) fn cherry_pick(start_ref: String, end_ref: String, strategy: Option<String>) {
