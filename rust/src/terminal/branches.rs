@@ -122,6 +122,11 @@ impl App for PullApp {
             Key::Esc | Key::Ctrl('c') | Key::Char('q') => {
                 return Ok(InputResult::Exit);
             },
+            Key::Char('d') => {
+                let selected_branch = &self.pulls[self.selection];
+                git::delete_branch(selected_branch.branch.clone());
+                self.update().await;
+            },
             Key::Char('j') | Key::Down => {
                 self.down();
             },
