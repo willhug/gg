@@ -1,4 +1,4 @@
-use crate::git::{parse_branch, ParsedBranch, get_commit_hash, checkout, reset, delete_branch, new, cherry_pick, current_branch, get_branch_for_dir, current_parsed_branch, cherry_abort, cherry_continue, assert_branch_exists, get_children_branches};
+use crate::git::{parse_branch, ParsedBranch, get_commit_hash, checkout, reset, delete_branch_all, new, cherry_pick, current_branch, get_branch_for_dir, current_parsed_branch, cherry_abort, cherry_continue, assert_branch_exists, get_children_branches, delete_branch_local};
 
 pub(crate) fn rebase_all_children(strategy: Option<String>) {
     let cur = current_parsed_branch();
@@ -26,8 +26,8 @@ pub(crate) fn abort_rebase() {
 
     checkout(&br.inner.full());
 
-    delete_branch(br.tmp_branch_name());
-    delete_branch(br.tmp_start_branch_name());
+    delete_branch_all(br.tmp_branch_name());
+    delete_branch_all(br.tmp_start_branch_name());
 }
 
 pub(crate) fn continue_rebase() {
@@ -68,8 +68,8 @@ fn finish_rebase(br: TmpBranchWrapper) {
     checkout(&br.inner.full());
     reset(br.tmp_branch_name(), true);
 
-    delete_branch(br.tmp_branch_name());
-    delete_branch(br.tmp_start_branch_name())
+    delete_branch_local(&br.tmp_branch_name());
+    delete_branch_local(&br.tmp_start_branch_name())
 }
 
 const TMP_PREFIX: &str  = "_tmp_-";
