@@ -136,7 +136,7 @@ pub(crate) fn reset(branch: String, hard: bool) {
         .expect("failed to reset");
 }
 
-pub(crate) fn delete_branch(branch: String) {
+pub(crate) fn delete_branch_all(branch: String) {
     // TODO check for branch existance before deleting.
     Command::new("git")
         .arg("push")
@@ -155,6 +155,15 @@ pub(crate) fn delete_branch(branch: String) {
         .arg("branch")
         .arg("-D")
         .arg("-r")
+        .arg(branch)
+        .status()
+        .expect("failed to delete branch");
+}
+
+pub(crate) fn delete_branch_local(branch: &str) {
+    Command::new("git")
+        .arg("branch")
+        .arg("-D")
         .arg(branch)
         .status()
         .expect("failed to delete branch");
