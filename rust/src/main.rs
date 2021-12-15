@@ -203,8 +203,8 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             github.land_pr(branch.full()).await.expect("error landing PR");
             git::fetch_main();
             git::checkout_main();
-            git::delete_branch(branch.full());
-            git::delete_branch(branch.start());
+            git::delete_branch_all(branch.full());
+            git::delete_branch_all(branch.start());
             let selected_issue = config::get_selected_issue_number();
             if selected_issue > 0 {
                 let issue = github.get_issue(selected_issue).await?;
@@ -293,8 +293,8 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
                     },
                 });
             }
-            git::delete_branch(branch_to_delete.full());
-            git::delete_branch(branch_to_delete.start());
+            git::delete_branch_all(branch_to_delete.full());
+            git::delete_branch_all(branch_to_delete.start());
         },
         Cmd::Rebase {
             all,
