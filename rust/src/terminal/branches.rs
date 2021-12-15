@@ -124,7 +124,7 @@ impl App for PullApp {
             },
             Key::Char('d') => {
                 let selected_branch = &self.pulls[self.selection];
-                git::delete_branch(selected_branch.branch.clone());
+                git::delete_branch_all(selected_branch.branch.clone());
                 self.update().await;
             },
             Key::Char('j') | Key::Down => {
