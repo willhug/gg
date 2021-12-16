@@ -1,9 +1,16 @@
 use tempfile::NamedTempFile;
-use std::io::{Read, Write};
+use std::{io::{Read, Write}, env};
 use std::process::Command;
 
 pub fn open_vim(input: String) -> String {
-    let mut file = NamedTempFile::new().expect("could not create file");
+    let mut file = match env::consts::OS {
+        "macos" => {
+            NamedTempFile::new_in("/tmp").expect("could not create file")
+        }
+        _ => {
+            NamedTempFile::new().expect("could not create file")
+        }
+    };
     file.write_all(input.as_bytes()).expect("could not initialize file");
     let path = file.path().to_str().expect("msg");
     println!("file created for vim! {}", path);
