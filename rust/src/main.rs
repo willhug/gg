@@ -15,7 +15,7 @@ use git_rebase::{abort_rebase, continue_rebase, start_rebase, rebase_all_childre
 use github::GithubRepo;
 use structopt::{StructOpt};
 
-use crate::git::parse_branch;
+use crate::{git::parse_branch, file::open_vim};
 
 #[derive(StructOpt)]
 #[structopt(name="gg", about="A command line tool for organizing tasks and git commits/PRs")]
@@ -249,10 +249,9 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             }
         },
         Cmd::Debug {  } => {
-            println!("origin/master");
-            git::get_commit_hash("origin/master".to_string());
-            println!("origin/main");
-            git::get_commit_hash("origin/main".to_string());
+            println!("trying vim");
+            let rest = open_vim("test test test".to_string());
+            println!("result {}", rest);
         },
         Cmd::Init {  } => {
             config::get_full_config();
