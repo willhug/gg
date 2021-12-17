@@ -1,9 +1,9 @@
-use std::error::Error;
+use std::{error::Error, collections::{HashMap, HashSet}};
 use termion::event::Key;
 use tui::{Frame, backend::Backend, layout::{Constraint, Direction, Layout}, style::{Color, Style}, widgets::{Block, Borders, Cell, Row, Table}};
 use async_trait::async_trait;
 
-use crate::{git, github::GithubRepo};
+use crate::{git::{self, parse_branch, is_start_branch}, github::GithubRepo};
 
 use super::{InputResult, app::App};
 
@@ -11,8 +11,11 @@ use super::{InputResult, app::App};
 struct BranchWithInfo {
     branch: String,
     current: bool,
+    has_start: bool,
     pr: Option<octocrab::models::pulls::PullRequest>,
 }
+
+static WIDTHS: &[tui::layout::Constraint; 4] = &[Constraint::Length(1), Constraint::Length(1), Constraint::Length(50), Constraint::Length(50)];
 
 impl BranchWithInfo {
     fn to_row(&self, selected: bool) -> Row {
@@ -25,6 +28,10 @@ impl BranchWithInfo {
                 true => Cell::from("*").style(style.fg(Color::Red)),
                 false => Cell::from(" "),
             },
+            match self.has_start {
+                true => Cell::from("!").style(style.fg(Color::Green)),
+                false => Cell::from("?").style(style.fg(Color::Red)),
+            },
             Cell::from(self.branch.as_str()).style(style.fg(Color::Blue)),
             match &self.pr {
                 Some(pull) => Cell::from(pull.html_url.as_str()).style(style.fg(Color::LightBlue)),
@@ -32,6 +39,44 @@ impl BranchWithInfo {
             },
         ]).style(style)
     }
+
+
+    pub(crate) fn set_pr(&mut self, pr: Option<octocrab::models::pulls::PullRequest>) {
+        self.pr = pr;
+    }
+}
+
+async fn load_branch_infos(github: &GithubRepo) -> Vec<BranchWithInfo> {
+    let branches = git::all_branches();
+    let mut br_map = HashSet::new();
+    let current_branch = git::current_branch();
+    for branch in &branches {
+        br_map.insert(branch.clone());
+    }
+    let prs = github.prs_for_branches(&br_map).await.unwrap();
+    let mut pr_map = HashMap::new();
+    for pr in prs {
+        pr_map.insert(pr.head.ref_field.clone(), pr);
+    }
+    let mut branch_infos: Vec<BranchWithInfo> = branches.into_iter()
+        .filter(|x| {
+            !is_start_branch(x)
+        })
+        .map(|branch| {
+            let parsed_br = parse_branch(branch.clone());
+            BranchWithInfo {
+                current: branch == current_branch,
+                pr: None,
+                has_start: br_map.contains(&parsed_br.start()),
+                branch,
+            }
+        })
+        .collect();
+    for branch_info in branch_infos.iter_mut() {
+        let pr = pr_map.remove(&branch_info.branch);
+        branch_info.set_pr(pr);
+    }
+    branch_infos
 }
 
 pub(super) struct PullApp {
@@ -53,22 +98,7 @@ impl PullApp {
     }
 
     async fn load_branch_infos(&mut self) {
-        let branches = git::all_branches();
-        let current_branch = git::current_branch();
-        let mut branch_infos = vec![];
-        for branch in branches {
-            branch_infos.push(
-                BranchWithInfo {
-                    current: branch == current_branch,
-                    pr: match self.github.pr_for_branch(&branch).await{
-                        Ok(res) => res,
-                        Err(_) => None,
-                    },
-                    branch,
-                },
-            );
-        }
-        self.pulls = branch_infos;
+        self.pulls = load_branch_infos(&self.github).await;
     }
 
     fn down(&mut self) {
@@ -111,7 +141,7 @@ impl App for PullApp {
             i.to_row(idx == self.selection)
         }).collect();
         let block = Table::new(items)
-            .widths(&[Constraint::Length(1), Constraint::Length(50), Constraint::Length(50)])
+            .widths(WIDTHS)
             .column_spacing(1)
             .block(Block::default().borders(Borders::ALL).title("Branches"));
         f.render_widget(block, chunks[0]);

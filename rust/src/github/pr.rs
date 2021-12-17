@@ -2,7 +2,7 @@ use crate::{color, config, github::GithubRepo};
 use crate::file;
 use octocrab::models::IssueState;
 use octocrab::models::pulls::PullRequest;
-use std::process::Command;
+use std::{process::Command, collections::HashSet};
 use std::str::from_utf8;
 
 impl GithubRepo {
@@ -93,6 +93,23 @@ impl GithubRepo {
             return Ok(Option::Some(pulls.items.first().unwrap().clone()))
         }
         Ok(Option::None)
+    }
+
+    pub async fn prs_for_branches(&self, branch: &HashSet<String>) -> anyhow::Result<Vec<PullRequest>> {
+        let pulls = self.octo.pulls(self.org.clone(), self.repo.clone())
+            .list()
+            .per_page(100)
+            .send()
+            .await
+            .map_err(anyhow::Error::msg)?;
+
+        if pulls.incomplete_results.unwrap_or(false) {
+            println!("More results, right now I do NOTHING!");
+        }
+
+        Ok(pulls.items.into_iter()
+            .filter(|pull| branch.contains(&pull.head.ref_field))
+            .collect())
     }
 
     fn print_pull(&self, pull: Option<PullRequest>, branch: String) {
