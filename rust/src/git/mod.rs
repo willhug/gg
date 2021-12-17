@@ -15,6 +15,26 @@ pub(crate) fn new(branch: &str) {
 }
 
 pub(crate) fn all_branches() -> Vec<String> {
+    let out = match Command::new("git")
+            .arg("branch")
+            .output() {
+                Ok(output) => output,
+                Err(_e) => panic!("error!")
+    };
+    let x: &[_] = &[' ', '\t', '\n', '\r', '*'];
+    let result = from_utf8(&out.stdout)
+        .expect("msg")
+        .trim_end_matches(x);
+    let mut branches = vec![];
+    for line in result.split('\n') {
+        let trimmed_line = line.trim_matches(x);
+        branches.push(trimmed_line.to_string());
+    }
+    branches
+}
+
+
+pub(crate) fn all_managed_branches() -> Vec<String> {
     let cfg = config::get_full_config();
     let out = match Command::new("git")
             .arg("branch")
@@ -221,7 +241,7 @@ pub(crate) fn get_children_branches(branch: &ParsedBranch) -> Vec<ParsedBranch> 
 }
 
 pub(crate) fn get_sorted_matching_branches(base: &str) -> Vec<ParsedBranch> {
-    let mut v: Vec<ParsedBranch> = all_branches().into_iter().map(|b| {
+    let mut v: Vec<ParsedBranch> = all_managed_branches().into_iter().map(|b| {
         parse_branch(b)
     }).filter(|b| {
         b.base == base
@@ -260,6 +280,10 @@ impl ParsedBranch {
             .collect();
         parts.join("/")
     }
+}
+
+pub(crate) fn is_start_branch(branch: &String) -> bool {
+    branch.starts_with(format!("{}/{}", get_saved_config().branch_prefix, "starts").as_str())
 }
 
 pub(crate) fn current_parsed_branch() -> ParsedBranch {
