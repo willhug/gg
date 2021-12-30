@@ -117,8 +117,6 @@ impl PullApp {
 #[async_trait]
 impl App for PullApp {
     async fn update(&mut self) {
-        // let issues = self.github.get_issues().await.unwrap();
-        // self.issues = issues;
         if self.selection >= self.pulls.len() {
             self.selection = self.pulls.len() - 1
         }
@@ -155,6 +153,9 @@ impl App for PullApp {
             Key::Char('d') => {
                 let selected_branch = &self.pulls[self.selection];
                 git::delete_branch_all(selected_branch.branch.clone());
+                if selected_branch.has_start {
+                    git::delete_branch_all(git::parse_branch(selected_branch.branch.clone()).start());
+                }
                 self.update().await;
             },
             Key::Char('j') | Key::Down => {
