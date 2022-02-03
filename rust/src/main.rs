@@ -11,7 +11,7 @@ use std::io::{self, Read, Write};
 use anyhow::Result;
 use config::get_saved_config;
 use git::{current_parsed_branch, diff};
-use git_rebase::{abort_rebase, continue_rebase, start_rebase, rebase_all_children};
+use git_rebase::{abort_rebase, continue_rebase, start_rebase, rebase_all_children, fixup_rebase};
 use github::GithubRepo;
 use structopt::{StructOpt};
 
@@ -87,6 +87,8 @@ enum Cmd {
         rebase_abort: bool,
         #[structopt(short="c",long="continue")]
         rebase_continue: bool,
+        #[structopt(short="f",long="fixup")]
+        rebase_fixup: bool,
     },
     #[structopt(about = "Manage issues")]
     Issue(IssueSubcommand),
@@ -301,8 +303,12 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             strategy,
             rebase_abort,
             rebase_continue ,
+            rebase_fixup,
         } => {
-            if rebase_abort {
+            if rebase_fixup {
+                fixup_rebase();
+                return Ok(())
+            } else if rebase_abort {
                 abort_rebase();
                 return Ok(())
             } else if rebase_continue {

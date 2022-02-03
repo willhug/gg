@@ -61,6 +61,12 @@ fn rebase_onto(branch_to_rebase: TmpBranchWrapper, onto: String, strategy: Optio
     finish_rebase(branch_to_rebase);
 }
 
+pub(crate) fn fixup_rebase() {
+    let br = TmpBranchWrapper::new_from_tmp_branch(current_branch());
+
+    finish_rebase(br);
+}
+
 fn finish_rebase(br: TmpBranchWrapper) {
     checkout(&br.inner.start());
     reset(br.tmp_start_branch_name(), true);
