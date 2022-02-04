@@ -45,7 +45,9 @@ enum Cmd {
         #[structopt(short,long)]
         feature: Option<String>,
         #[structopt(short,long)]
-        part: Option<f32>
+        part: Option<f32>,
+        #[structopt(short,long)]
+        main: bool,
     },
     #[structopt(about = "Push the current branch to origin")]
     Push {
@@ -147,7 +149,11 @@ enum StatusSubcommand {
 async fn main() ->  Result<(), Box<dyn std::error::Error>> {
     let opt = GG::from_args();
     match opt.cmd {
-        Cmd::New { feature, part } => {
+        Cmd::New { feature, part , main} => {
+            if main {
+                git::fetch_main();
+                git::checkout_main();
+            }
             let mut branch = git::current_parsed_branch();
             if branch.prefix.is_none() {
                 branch.prefix = Some(config::get_saved_config().branch_prefix);
