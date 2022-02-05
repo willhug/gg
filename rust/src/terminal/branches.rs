@@ -34,7 +34,13 @@ impl BranchWithInfo {
             },
             Cell::from(self.branch.as_str()).style(style.fg(Color::Blue)),
             match &self.pr {
-                Some(pull) => Cell::from(pull.html_url.as_str()).style(style.fg(Color::LightBlue)),
+                Some(pull) => {
+                    let mut col = Color::LightBlue;
+                    if pull.closed_at.is_some() {
+                        col = Color::LightRed;
+                    }
+                    Cell::from(pull.html_url.as_str()).style(style.fg(col))
+                },
                 None => Cell::from("N/A").style(style.fg(Color::Red)),
             },
         ]).style(style)
