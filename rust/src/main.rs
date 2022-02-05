@@ -7,7 +7,7 @@ mod file;
 mod terminal;
 mod status;
 mod pomodoro;
-use std::io::{self, Read, Write};
+use std::{io::{self, Read, Write}, ops::Add, collections::HashSet};
 use anyhow::Result;
 use config::get_saved_config;
 use git::{current_parsed_branch, diff};
@@ -15,7 +15,7 @@ use git_rebase::{abort_rebase, continue_rebase, start_rebase, rebase_all_childre
 use github::GithubRepo;
 use structopt::{StructOpt};
 
-use crate::{git::parse_branch, file::open_vim};
+use crate::{git::parse_branch, file::open_vim, config::get_full_config};
 
 #[derive(StructOpt)]
 #[structopt(name="gg", about="A command line tool for organizing tasks and git commits/PRs")]
@@ -257,9 +257,12 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             }
         },
         Cmd::Debug {  } => {
-            println!("trying vim");
-            let rest = open_vim("test test test".to_string());
-            println!("result {}", rest);
+            println!("trying get");
+            let github = GithubRepo::new(get_full_config()).await;
+            let mut hashset = HashSet::new();
+            hashset.insert("wh/checkoutMain/part-1.0".to_string());
+            let prs = github.prs_for_branches(&hashset).await.expect("error getting PRs");
+            println!("result {} {:?}", prs.len(), prs);
         },
         Cmd::Init {  } => {
             config::get_full_config();

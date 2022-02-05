@@ -98,6 +98,7 @@ impl GithubRepo {
     pub async fn prs_for_branches(&self, branch: &HashSet<String>) -> anyhow::Result<Vec<PullRequest>> {
         let pulls = self.octo.pulls(self.org.clone(), self.repo.clone())
             .list()
+            .state(octocrab::params::State::All)
             .per_page(100)
             .send()
             .await
