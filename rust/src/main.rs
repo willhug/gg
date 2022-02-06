@@ -7,15 +7,16 @@ mod file;
 mod terminal;
 mod status;
 mod pomodoro;
-use std::{io::{self, Read, Write}, ops::Add, collections::HashSet};
+use std::{io::{self, Read, Write}, collections::HashSet};
 use anyhow::Result;
 use config::get_saved_config;
 use git::{current_parsed_branch, diff};
 use git_rebase::{abort_rebase, continue_rebase, start_rebase, rebase_all_children, fixup_rebase};
-use github::GithubRepo;
+use github::{GithubRepo};
+use octocrab::models::{IssueState, pulls::PullRequest};
 use structopt::{StructOpt};
 
-use crate::{git::parse_branch, file::open_vim, config::get_full_config};
+use crate::{git::{parse_branch, delete_branch_all}, config::get_full_config};
 
 #[derive(StructOpt)]
 #[structopt(name="gg", about="A command line tool for organizing tasks and git commits/PRs")]
@@ -114,6 +115,8 @@ enum Cmd {
     },
     #[structopt(about = "Shows the current diff for the branch")]
     Diff {},
+    #[structopt(about = "delete closed branches")]
+    Cleanup {},
     #[structopt(about = "dumps debug info")]
     Debug {},
 }
@@ -332,8 +335,48 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         Cmd::Diff {  } => {
             diff(current_parsed_branch().start(), None);
         },
+        Cmd::Cleanup {  } => {
+            cleanup().await;
+        },
     }
     Ok(())
+}
+
+async fn cleanup() {
+    let cfg = config::get_full_config();
+    let github = GithubRepo::new(cfg).await;
+    let branches = git::all_branches();
+    let mut br_map = HashSet::new();
+    for branch in &branches {
+        br_map.insert(branch.clone());
+    }
+    let prs = github.prs_for_branches(&br_map).await.expect("error getting PRs");
+
+    for pr in prs {
+        if pr.state != IssueState::Closed {
+            continue;
+        }
+        cleanup_closed_pr(&pr)
+    }
+}
+
+fn cleanup_closed_pr(pr: &PullRequest) {
+    println!("Do you want to delete {}, {}, \"{}\"?", pr.head.ref_field, pr.html_url, pr.title);
+    println!("[y/n]: ");
+
+    let mut line = String::new();
+    std::io::stdin().read_line(&mut line).unwrap();
+    let x: &[_] = &[' ', '\t', '\n', '\r'];
+    let line = line.trim_end_matches(x);
+
+    if line != "y" {
+        return;
+    }
+
+    let br = parse_branch(pr.head.ref_field.clone());
+    println!("Deleting {} and {}", br.full(), br.start());
+    delete_branch_all(br.full());
+    delete_branch_all(br.start());
 }
 
 async fn log(all: bool) {
