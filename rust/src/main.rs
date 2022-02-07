@@ -10,7 +10,7 @@ mod pomodoro;
 use std::{io::{self, Read, Write}, collections::HashSet};
 use anyhow::Result;
 use config::get_saved_config;
-use git::{current_parsed_branch, diff};
+use git::{current_parsed_branch, diff, sync};
 use git_rebase::{abort_rebase, continue_rebase, start_rebase, rebase_all_children, fixup_rebase};
 use github::{GithubRepo};
 use octocrab::models::{IssueState, pulls::PullRequest};
@@ -117,6 +117,11 @@ enum Cmd {
     Diff {},
     #[structopt(about = "delete closed branches")]
     Cleanup {},
+    #[structopt(about = "sync current branch with remote branch (if more recent)")]
+    Sync {
+        #[structopt(short="f",long="force")]
+        force: bool,
+    },
     #[structopt(about = "dumps debug info")]
     Debug {},
 }
@@ -337,6 +342,9 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         },
         Cmd::Cleanup {  } => {
             cleanup().await;
+        },
+        Cmd::Sync { force } => {
+            sync(force);
         },
     }
     Ok(())
