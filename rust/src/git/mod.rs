@@ -94,11 +94,15 @@ pub(crate) fn push(full_branch: &String, force: bool) {
 
 pub(crate) fn fetch_main() {
     let cfg = config::get_saved_config();
+    fetch_branch(cfg.repo_main_branch.as_str());
+}
+
+pub(crate) fn fetch_branch(br: &str) {
     Command::new("git")
             .arg("fetch")
             .arg("-p")
             .arg("origin")
-            .arg(cfg.repo_main_branch)
+            .arg(br)
             .output()
             .expect("failed to fetch main branch");
 }
@@ -154,6 +158,16 @@ pub(crate) fn reset(branch: String, hard: bool) {
     c.arg(branch)
         .output()
         .expect("failed to reset");
+}
+
+pub(crate) fn force_branch_to_be(branch: &str, start_point: &str) {
+    Command::new("git")
+        .arg("branch")
+        .arg("-f")
+        .arg(branch)
+        .arg(start_point)
+        .status()
+        .expect("failed to delete branch");
 }
 
 pub(crate) fn delete_branch_all(branch: String) {
@@ -258,7 +272,7 @@ pub(crate) struct ParsedBranch {
 }
 
 impl ParsedBranch {
-    pub(crate) fn full(&self) -> String{
+    pub(crate) fn full(&self) -> String {
         let parts: Vec<String> = vec![
             self.prefix.clone(),
             Some(self.base.clone()),
@@ -269,7 +283,7 @@ impl ParsedBranch {
         parts.join("/")
     }
 
-    pub(crate) fn start(&self) -> String{
+    pub(crate) fn start(&self) -> String {
         let parts: Vec<String> = vec![
             self.prefix.clone(),
             Some("starts".to_string()),
@@ -278,6 +292,22 @@ impl ParsedBranch {
         ].into_iter()
             .flatten()
             .collect();
+        parts.join("/")
+    }
+
+    pub(crate) fn remote_full(&self) -> String {
+        let parts: Vec<String> = vec![
+            "origin".to_string(),
+            self.full(),
+        ].into_iter().collect();
+        parts.join("/")
+    }
+
+    pub(crate) fn remote_start(&self) -> String {
+        let parts: Vec<String> = vec![
+            "origin".to_string(),
+            self.start(),
+        ].into_iter().collect();
         parts.join("/")
     }
 }
@@ -396,4 +426,41 @@ pub(crate) fn diff(start_ref: String, end_ref: Option<String>) {
         None => start_ref,
     });
     c.status().expect("failed to fixup main branch");
+}
+
+
+pub(crate) fn sync(force: bool) {
+    let br = current_parsed_branch();
+    fetch_branch(br.full().as_str());
+    fetch_branch(br.start().as_str());
+
+    if get_create_timestamp(br.full().as_str()) >= get_create_timestamp(br.remote_full().as_str()) && !force {
+        println!("{} is newer than {}", br.full(), br.remote_full());
+        println!("use --force to override");
+        return
+    }
+
+    // Force the start & end to be remote branches
+    reset(br.remote_full(), true);
+    force_branch_to_be(br.start().as_str(), br.remote_start().as_str());
+}
+
+fn get_create_timestamp(br: &str) -> i64 {
+    let out = Command::new("git")
+            .arg("show")
+            .arg("--no-patch")
+            .arg("--no-notes")
+            .arg("--pretty=format:%ct")
+            .arg(br)
+            .output()
+            .expect("error getting hash");
+    if !out.status.success() {
+        panic!("error getting timestamp {}", br);
+    }
+    let x: &[_] = &[' ', '\t', '\n', '\r'];
+    let result = from_utf8(&out.stdout)
+        .expect("msg")
+        .trim_end_matches(x);
+    println!("{}", result);
+    result.parse::<i64>().expect("failed to parse timestamp")
 }
