@@ -23,6 +23,13 @@ pub struct SavedConfig {
     pub linked_issue: Option<i64>,
     pub branch_prefix: String,
     pub repo_org: String,
+
+    #[serde(default="default_split")]
+    pub branch_split: String,
+}
+
+fn default_split() -> String {
+    "/".to_string()
 }
 
 pub fn get_full_config() -> FullConfig {
@@ -127,11 +134,17 @@ fn create_saved_config() -> File {
     std::io::stdin().read_line(&mut org).unwrap();
     let org = org.trim_end_matches(x);
 
+    println!("What is the split character: ");
+    let mut split = String::new();
+    std::io::stdin().read_line(&mut split).unwrap();
+    let split = split.trim_end_matches(x);
+
     let config = SavedConfig {
         repo_main_branch: line.to_string(),
         linked_issue: None,
         branch_prefix: prefix.to_string(), // replace
         repo_org: org.to_string(),
+        branch_split: split.to_string(),
     };
 
     write_saved_config(config)
