@@ -280,7 +280,7 @@ impl ParsedBranch {
         ].into_iter()
             .flatten()
             .collect();
-        parts.join("/")
+        parts.join(get_saved_config().branch_split.as_str())
     }
 
     pub(crate) fn start(&self) -> String {
@@ -292,7 +292,7 @@ impl ParsedBranch {
         ].into_iter()
             .flatten()
             .collect();
-        parts.join("/")
+        parts.join(get_saved_config().branch_split.as_str())
     }
 
     pub(crate) fn remote_full(&self) -> String {
@@ -313,7 +313,8 @@ impl ParsedBranch {
 }
 
 pub(crate) fn is_start_branch(branch: &String) -> bool {
-    branch.starts_with(format!("{}/{}", get_saved_config().branch_prefix, "starts").as_str())
+    let cfg = get_saved_config();
+    branch.starts_with(format!("{}{}{}", cfg.branch_prefix, cfg.branch_split, "starts").as_str())
 }
 
 pub(crate) fn current_parsed_branch() -> ParsedBranch {
@@ -321,10 +322,11 @@ pub(crate) fn current_parsed_branch() -> ParsedBranch {
 }
 
 pub(crate) fn parse_branch(orig_branch: String) -> ParsedBranch {
-    let prefix = get_saved_config().branch_prefix;
+    let cfg = get_saved_config();
+    let prefix = cfg.branch_prefix;
 
     let mut found_prefix = None;
-    let branch = match orig_branch.split_once(format!("{}/", prefix).as_str()) {
+    let branch = match orig_branch.split_once(format!("{}{}", prefix, cfg.branch_split).as_str()) {
         Some(res) => {
             found_prefix = Some(prefix);
             res.1.to_string()
@@ -332,7 +334,7 @@ pub(crate) fn parse_branch(orig_branch: String) -> ParsedBranch {
         None => orig_branch.clone(),
     };
 
-    match branch.split_once("/part-") {
+    match branch.split_once(format!("{}part-", cfg.branch_split).as_str()) {
         Some(res) => {
             ParsedBranch {
                 prefix: found_prefix,
