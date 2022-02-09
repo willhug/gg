@@ -14,6 +14,16 @@ pub(crate) fn new(branch: &str) {
             .expect("failed to create branch");
 }
 
+pub(crate) fn rename_branch(new_branch_name: &str, old_branch_name: &str) {
+    Command::new("git")
+            .arg("branch")
+            .arg("-m")
+            .arg(old_branch_name)
+            .arg(new_branch_name)
+            .output()
+            .expect("failed to create branch");
+}
+
 pub(crate) fn all_branches() -> Vec<String> {
     let out = match Command::new("git")
             .arg("branch")
@@ -34,8 +44,16 @@ pub(crate) fn all_branches() -> Vec<String> {
 }
 
 
+pub(crate) fn all_parsed_managed_branches() -> Vec<ParsedBranch> {
+    all_managed_branches()
+        .into_iter()
+        .map(parse_branch)
+        .collect::<Vec<_>>()
+}
+
 pub(crate) fn all_managed_branches() -> Vec<String> {
     let cfg = config::get_full_config();
+    let start_prefix = format!("{}{}starts", cfg.saved.branch_prefix.clone(), cfg.saved.branch_split.clone());
     let out = match Command::new("git")
             .arg("branch")
             .output() {
@@ -49,7 +67,7 @@ pub(crate) fn all_managed_branches() -> Vec<String> {
     let mut branches = vec![];
     for line in result.split('\n') {
         let trimmed_line = line.trim_matches(x);
-        if trimmed_line.starts_with(cfg.saved.branch_prefix.as_str()) {
+        if trimmed_line.starts_with(cfg.saved.branch_prefix.as_str()) && !trimmed_line.starts_with(start_prefix.as_str()) {
             branches.push(trimmed_line.to_string());
         }
     }
@@ -273,6 +291,10 @@ pub(crate) struct ParsedBranch {
 
 impl ParsedBranch {
     pub(crate) fn full(&self) -> String {
+        self.full_with_split(get_saved_config().branch_split.as_str())
+    }
+
+    pub(crate) fn full_with_split(&self, split: &str) -> String {
         let parts: Vec<String> = vec![
             self.prefix.clone(),
             Some(self.base.clone()),
@@ -280,10 +302,14 @@ impl ParsedBranch {
         ].into_iter()
             .flatten()
             .collect();
-        parts.join(get_saved_config().branch_split.as_str())
+        parts.join(split)
     }
 
     pub(crate) fn start(&self) -> String {
+        self.start_with_split(get_saved_config().branch_split.as_str())
+    }
+
+    pub(crate) fn start_with_split(&self, split: &str) -> String {
         let parts: Vec<String> = vec![
             self.prefix.clone(),
             Some("starts".to_string()),
@@ -292,7 +318,7 @@ impl ParsedBranch {
         ].into_iter()
             .flatten()
             .collect();
-        parts.join(get_saved_config().branch_split.as_str())
+        parts.join(split)
     }
 
     pub(crate) fn remote_full(&self) -> String {

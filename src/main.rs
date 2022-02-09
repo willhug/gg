@@ -16,7 +16,7 @@ use github::{GithubRepo};
 use octocrab::models::{IssueState, pulls::PullRequest};
 use structopt::{StructOpt};
 
-use crate::{git::{parse_branch, delete_branch_all}, config::get_full_config};
+use crate::{git::{parse_branch, delete_branch_all}, config::{get_full_config, update_prefix_and_split}};
 
 #[derive(StructOpt)]
 #[structopt(name="gg", about="A command line tool for organizing tasks and git commits/PRs")]
@@ -121,6 +121,13 @@ enum Cmd {
     Sync {
         #[structopt(short="f",long="force")]
         force: bool,
+    },
+    #[structopt(about = "migrate to new branch format")]
+    Migrate {
+        #[structopt(about="prefix to use for new branches")]
+        prefix: String,
+        #[structopt(about="separator for splitting branch name")]
+        separator: String,
     },
     #[structopt(about = "dumps debug info")]
     Debug {},
@@ -346,8 +353,29 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         Cmd::Sync { force } => {
             sync(force);
         },
+        Cmd::Migrate { prefix, separator } => {
+            migrate(prefix.as_str(), separator.as_str());
+        },
     }
     Ok(())
+}
+
+fn migrate(prefix : &str, separator : &str) {
+    let branches = git::all_parsed_managed_branches();
+    for branch in branches {
+        let mut new_branch = branch.clone();
+        new_branch.prefix = Some(prefix.to_string());
+        let new_full_branch = new_branch.full_with_split(separator);
+        let new_start_branch = new_branch.start_with_split(separator);
+        println!("Rename {} to {} and {} to {}?", branch.full(), new_full_branch, branch.start(), new_start_branch);
+        if !confirm() {
+            continue;
+        }
+        git::rename_branch(new_full_branch.as_str(), branch.full().as_str());
+        git::rename_branch(new_start_branch.as_str(), branch.start().as_str());
+    }
+    println!("Fixing configuration!");
+    update_prefix_and_split(prefix, separator);
 }
 
 async fn cleanup() {
@@ -370,14 +398,7 @@ async fn cleanup() {
 
 fn cleanup_closed_pr(pr: &PullRequest) {
     println!("Do you want to delete {}, {}, \"{}\"?", pr.head.ref_field, pr.html_url, pr.title);
-    println!("[y/n]: ");
-
-    let mut line = String::new();
-    std::io::stdin().read_line(&mut line).unwrap();
-    let x: &[_] = &[' ', '\t', '\n', '\r'];
-    let line = line.trim_end_matches(x);
-
-    if line != "y" {
+    if !confirm() {
         return;
     }
 
@@ -385,6 +406,17 @@ fn cleanup_closed_pr(pr: &PullRequest) {
     println!("Deleting {} and {}", br.full(), br.start());
     delete_branch_all(br.full());
     delete_branch_all(br.start());
+}
+
+fn confirm() -> bool{
+    println!("[y/n]: ");
+
+    let mut line = String::new();
+    std::io::stdin().read_line(&mut line).unwrap();
+    let x: &[_] = &[' ', '\t', '\n', '\r'];
+    let line = line.trim_end_matches(x);
+
+    line == "y"
 }
 
 async fn log(all: bool) {

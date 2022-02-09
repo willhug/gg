@@ -113,6 +113,15 @@ pub fn get_selected_issue_number() -> i64 {
     cfg.linked_issue.unwrap_or(0)
 }
 
+pub fn update_prefix_and_split(prefix: &str, split: &str) {
+    let mut cfg = get_saved_config();
+
+    cfg.branch_prefix = prefix.to_string();
+    cfg.branch_split = split.to_string();
+
+    write_saved_config(cfg);
+}
+
 fn create_saved_config() -> File {
     // Query for main/master info
     println!("Config file not found, creating one at {}", get_saved_config_file_path().to_str().expect("should have been str"));
