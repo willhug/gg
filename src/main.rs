@@ -223,6 +223,7 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             let cfg = config::get_full_config();
             let github = GithubRepo::new(cfg).await;
             let branch = git::current_parsed_branch();
+            let pr = github.pr_for_branch(&branch.full()).await.expect("error getting PR").unwrap();
             github.land_pr(branch.full()).await.expect("error landing PR");
             git::fetch_main();
             git::checkout_main();
@@ -239,6 +240,7 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
                     config::update_selected_issue(0);
                 }
             }
+            status::write_status(format!("LAND: {} ({})", pr.title, pr.repo.unwrap().name), false);
         },
         Cmd::RebaseOld { interactive } => {
             git::rebase(interactive);
