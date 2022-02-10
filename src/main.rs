@@ -240,7 +240,7 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
                     config::update_selected_issue(0);
                 }
             }
-            status::write_status(format!("LAND: {}", pr.title), false);
+            status::write_status(format!("Landed: {}", pr.title), false);
         },
         Cmd::RebaseOld { interactive } => {
             git::rebase(interactive);
