@@ -12,8 +12,7 @@ use anyhow::Result;
 use config::get_saved_config;
 use git::{current_parsed_branch, diff, sync};
 use git_rebase::{abort_rebase, continue_rebase, start_rebase, rebase_all_children, fixup_rebase};
-use github::{GithubRepo};
-use octocrab::models::{IssueState, pulls::PullRequest};
+use github::{GithubRepo, pr::Pr};
 use structopt::{StructOpt};
 
 use crate::{git::{parse_branch, delete_branch_all}, config::{get_full_config, update_prefix_and_split}};
@@ -278,7 +277,7 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             let github = GithubRepo::new(get_full_config()).await;
             let mut hashset = HashSet::new();
             hashset.insert("wh/checkoutMain/part-1.0".to_string());
-            let prs = github.prs_for_branches(&hashset).await.expect("error getting PRs");
+            let prs = github.gql_prs_for_branches(&hashset).await.expect("error getting PRs");
             println!("result {} {:?}", prs.len(), prs);
         },
         Cmd::Init {  } => {
@@ -388,23 +387,23 @@ async fn cleanup() {
     for branch in &branches {
         br_map.insert(branch.clone());
     }
-    let prs = github.prs_for_branches(&br_map).await.expect("error getting PRs");
+    let prs = github.gql_prs_for_branches(&br_map).await.expect("error getting PRs");
 
     for pr in prs {
-        if pr.state != IssueState::Closed {
+        if !pr.closed {
             continue;
         }
         cleanup_closed_pr(&pr)
     }
 }
 
-fn cleanup_closed_pr(pr: &PullRequest) {
-    println!("Do you want to delete {}, {}, \"{}\"?", pr.head.ref_field, pr.html_url, pr.title);
+fn cleanup_closed_pr(pr: &Pr) {
+    println!("Do you want to delete {}, {}, \"{}\"?", pr.branch, pr.url, pr.title);
     if !confirm() {
         return;
     }
 
-    let br = parse_branch(pr.head.ref_field.clone());
+    let br = parse_branch(pr.branch.clone());
     println!("Deleting {} and {}", br.full(), br.start());
     delete_branch_all(br.full());
     delete_branch_all(br.start());
