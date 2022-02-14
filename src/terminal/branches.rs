@@ -59,7 +59,7 @@ async fn load_branch_infos(github: &GithubRepo) -> Vec<BranchWithInfo> {
     for branch in &branches {
         br_map.insert(branch.clone());
     }
-    let prs = github.gql_prs_for_branches(&br_map).await.unwrap();
+    let prs = github.prs_for_branches(&br_map).await.unwrap();
     let mut pr_map = HashMap::new();
     for pr in prs {
         pr_map.insert(pr.branch.clone(), pr);
