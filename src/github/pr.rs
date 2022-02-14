@@ -103,8 +103,7 @@ impl GithubRepo {
         Ok(Option::None)
     }
 
-    pub async fn gql_prs_for_branches(&self, branches: &HashSet<String>) -> anyhow::Result<Vec<Pr>> {
-        // TODO FILTER BY AUTHOR
+    pub async fn prs_for_branches(&self, branches: &HashSet<String>) -> anyhow::Result<Vec<Pr>> {
         let query = format!("
         {{
             search(first:100, query: \"is:pr author:{} org:{} repo:{}\", type: ISSUE) {{
@@ -154,25 +153,6 @@ impl GithubRepo {
             ).filter(|x| branches.contains(x.branch.as_str()))
             .collect();
         Ok(prs)
-    }
-
-
-    pub async fn prs_for_branches(&self, branch: &HashSet<String>) -> anyhow::Result<Vec<PullRequest>> {
-        let pulls = self.octo.pulls(self.org.clone(), self.repo.clone())
-            .list()
-            .state(octocrab::params::State::All)
-            .per_page(100)
-            .send()
-            .await
-            .map_err(anyhow::Error::msg)?;
-
-        if pulls.incomplete_results.unwrap_or(false) {
-            println!("More results, right now I do NOTHING!");
-        }
-
-        Ok(pulls.items.into_iter()
-            .filter(|pull| branch.contains(&pull.head.ref_field))
-            .collect())
     }
 
     fn print_pull(&self, pull: Option<PullRequest>, branch: String) {

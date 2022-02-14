@@ -277,7 +277,7 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
             let github = GithubRepo::new(get_full_config()).await;
             let mut hashset = HashSet::new();
             hashset.insert("wh/checkoutMain/part-1.0".to_string());
-            let prs = github.gql_prs_for_branches(&hashset).await.expect("error getting PRs");
+            let prs = github.prs_for_branches(&hashset).await.expect("error getting PRs");
             println!("result {} {:?}", prs.len(), prs);
         },
         Cmd::Init {  } => {
@@ -387,7 +387,7 @@ async fn cleanup() {
     for branch in &branches {
         br_map.insert(branch.clone());
     }
-    let prs = github.gql_prs_for_branches(&br_map).await.expect("error getting PRs");
+    let prs = github.prs_for_branches(&br_map).await.expect("error getting PRs");
 
     for pr in prs {
         if !pr.closed {
