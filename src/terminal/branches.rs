@@ -3,7 +3,7 @@ use termion::event::Key;
 use tui::{Frame, backend::Backend, layout::{Constraint, Direction, Layout}, style::{Color, Style}, widgets::{Block, Borders, Cell, Row, Table}};
 use async_trait::async_trait;
 
-use crate::{git::{self, parse_branch, is_start_branch}, github::GithubRepo};
+use crate::{git::{self, parse_branch, is_start_branch}, github::{GithubRepo, pr::Pr}};
 
 use super::{InputResult, app::App};
 
@@ -12,7 +12,7 @@ struct BranchWithInfo {
     branch: String,
     current: bool,
     has_start: bool,
-    pr: Option<octocrab::models::pulls::PullRequest>,
+    pr: Option<Pr>,
 }
 
 static WIDTHS: &[tui::layout::Constraint; 4] = &[Constraint::Length(1), Constraint::Length(1), Constraint::Length(50), Constraint::Length(50)];
@@ -36,10 +36,10 @@ impl BranchWithInfo {
             match &self.pr {
                 Some(pull) => {
                     let mut col = Color::LightBlue;
-                    if pull.closed_at.is_some() {
+                    if pull.closed {
                         col = Color::LightRed;
                     }
-                    Cell::from(pull.html_url.as_str()).style(style.fg(col))
+                    Cell::from(pull.url.as_str()).style(style.fg(col))
                 },
                 None => Cell::from("N/A").style(style.fg(Color::Red)),
             },
@@ -47,7 +47,7 @@ impl BranchWithInfo {
     }
 
 
-    pub(crate) fn set_pr(&mut self, pr: Option<octocrab::models::pulls::PullRequest>) {
+    pub(crate) fn set_pr(&mut self, pr: Option<Pr>) {
         self.pr = pr;
     }
 }
@@ -59,10 +59,10 @@ async fn load_branch_infos(github: &GithubRepo) -> Vec<BranchWithInfo> {
     for branch in &branches {
         br_map.insert(branch.clone());
     }
-    let prs = github.prs_for_branches(&br_map).await.unwrap();
+    let prs = github.gql_prs_for_branches(&br_map).await.unwrap();
     let mut pr_map = HashMap::new();
     for pr in prs {
-        pr_map.insert(pr.head.ref_field.clone(), pr);
+        pr_map.insert(pr.branch.clone(), pr);
     }
     let mut branch_infos: Vec<BranchWithInfo> = branches.into_iter()
         .filter(|x| {
@@ -179,7 +179,7 @@ impl App for PullApp {
                 let i = &self.pulls[self.selection];
                 match &i.pr {
                     Some(pr) => {
-                        open::that(&pr.html_url.as_str()).unwrap();
+                        open::that(&pr.url.as_str()).unwrap();
                     },
                     None => {},
                 }
