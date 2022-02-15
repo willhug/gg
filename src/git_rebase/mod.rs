@@ -1,3 +1,5 @@
+use std::{fs, process::Command, str::from_utf8};
+
 use crate::git::{parse_branch, ParsedBranch, get_commit_hash, checkout, reset, delete_branch_all, new, cherry_pick, current_branch, get_branch_for_dir, current_parsed_branch, cherry_abort, cherry_continue, assert_branch_exists, get_children_branches, delete_branch_local};
 
 pub(crate) fn rebase_all_children(strategy: Option<String>) {
@@ -11,6 +13,7 @@ pub(crate) fn rebase_all_children(strategy: Option<String>) {
 }
 
 pub(crate) fn start_rebase(onto: Option<String>, strategy: Option<String>) {
+    setup_hooks_path();
     let cur = TmpBranchWrapper::new(current_parsed_branch());
     let onto = onto.unwrap_or_else(|| {
         get_branch_for_dir(crate::git::CheckoutDir::Prev).expect("No previous branch to rebase onto")
@@ -75,8 +78,64 @@ fn finish_rebase(br: TmpBranchWrapper) {
     reset(br.tmp_branch_name(), true);
 
     delete_branch_local(&br.tmp_branch_name());
-    delete_branch_local(&br.tmp_start_branch_name())
+    delete_branch_local(&br.tmp_start_branch_name());
+    finish_up_hooks_path();
 }
+
+// Hooks break the rebase, so we need to delete before the rebase and set it up again after
+fn setup_hooks_path() {
+    store_hooks_path();
+    set_hooks_path(DEVNULL);
+}
+
+fn finish_up_hooks_path() {
+    set_hooks_path(get_stored_hooks_path().as_str());
+    fs::remove_file(TMP_HOOKS_FILE).expect("Failed to remove temp hooks file");
+}
+
+fn store_hooks_path() {
+    let path = get_hooks_path();
+    fs::write(TMP_HOOKS_FILE, path).expect("Could not write hooks path to file");
+}
+
+fn get_stored_hooks_path() -> String {
+    fs::read_to_string(TMP_HOOKS_FILE).expect("No hooks file to pull hooks info")
+}
+
+fn get_hooks_path() -> String {
+    let out = Command::new("git")
+            .arg("config")
+            .arg("core.hooksPath")
+            .output()
+            .expect("failed to create branch");
+
+    let x: &[_] = &[' ', '\t', '\n', '\r', '*'];
+    from_utf8(&out.stdout)
+        .expect("msg")
+        .trim_end_matches(x)
+        .to_string()
+}
+
+fn set_hooks_path(path: &str) {
+    if path.is_empty() {
+        Command::new("git")
+            .arg("config")
+            .arg("--unset")
+            .arg("core.hooksPath")
+            .output()
+            .expect("failed to create branch");
+    } else {
+        Command::new("git")
+            .arg("config")
+            .arg("core.hooksPath")
+            .arg(path)
+            .output()
+            .expect("failed to create branch");
+    }
+}
+
+const TMP_HOOKS_FILE: &str = "/tmp/git_rebase_hooks";
+const DEVNULL: &str = "/dev/null";
 
 const TMP_PREFIX: &str  = "_tmp_-";
 
