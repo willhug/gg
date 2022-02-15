@@ -9,7 +9,7 @@ pub(crate) fn new(branch: &str) {
     Command::new("git")
             .arg("checkout")
             .arg("-b")
-            .arg(branch)
+            .arg(branch.to_lowercase())
             .output()
             .expect("failed to create branch");
 }
