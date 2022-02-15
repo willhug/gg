@@ -116,6 +116,11 @@ enum Cmd {
     Diff {},
     #[structopt(about = "delete closed branches")]
     Cleanup {},
+    #[structopt(about = "rename current branch (and start branch)")]
+    Rename {
+        #[structopt(about="new name")]
+        new_name: String,
+    },
     #[structopt(about = "sync current branch with remote branch (if more recent)")]
     Sync {
         #[structopt(short="f",long="force")]
@@ -356,6 +361,13 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         },
         Cmd::Migrate { prefix, separator } => {
             migrate(prefix.as_str(), separator.as_str());
+        },
+        Cmd::Rename { new_name } => {
+            let cur = current_parsed_branch();
+            let mut new = cur.clone();
+            new.base = new_name;
+            git::rename_branch(new.full().as_str(), cur.full().as_str());
+            git::rename_branch(new.start().as_str(), cur.start().as_str());
         },
     }
     Ok(())
