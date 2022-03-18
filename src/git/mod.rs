@@ -90,7 +90,11 @@ pub(crate) fn current_branch() -> String {
     result.to_string()
 }
 
-pub(crate) fn push(full_branch: &String, force: bool) {
+pub(crate) fn push_one(full_branch: String, force: bool) {
+    push(vec![full_branch], force);
+}
+
+pub(crate) fn push(full_branches: Vec<String>, force: bool) {
     let mut command = Command::new("git");
     let c = command.arg("push");
 
@@ -98,9 +102,13 @@ pub(crate) fn push(full_branch: &String, force: bool) {
         c.arg("-f");
     }
 
-    let res = c.arg("origin")
-     .arg(full_branch)
-     .status()
+    c.arg("origin");
+
+    for branch in full_branches {
+        c.arg(branch);
+    }
+
+    let res = c.status()
      .expect("did not get successful response.");
 
      if res.success() {
@@ -109,6 +117,7 @@ pub(crate) fn push(full_branch: &String, force: bool) {
          println!("{}", color::bold(color::red("Error pushing! (try '-f')")))
      }
 }
+
 
 pub(crate) fn fetch_main() {
     let cfg = config::get_saved_config();
