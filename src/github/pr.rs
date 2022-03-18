@@ -23,7 +23,7 @@ impl GithubRepo {
         let cfg = config::get_full_config();
         let base = base.unwrap_or(cfg.saved.repo_main_branch);
 
-        let (title, body) = self.get_title_and_body().await;
+        let (title, body) = self.get_title_and_body(base.clone()).await;
         let res = self.octo.pulls(cfg.saved.repo_org, cfg.repo_name)
             .create(title, full_branch, base)
             .body(body)
@@ -37,17 +37,16 @@ impl GithubRepo {
         Ok(())
     }
 
-    async fn get_title_and_body(&self) -> (String, String) {
-        let res = file::open_vim(self.get_template_for_pr().await);
-        let (title, body) = res.split_once("\n").expect("wanted at least two lines");
+    async fn get_title_and_body(&self, base: String) -> (String, String) {
+        let res = file::open_vim(self.get_template_for_pr(base).await);
+        let (title, body) = res.split_once('\n').expect("wanted at least two lines");
         (title.to_string(), body.to_string())
     }
 
-    async fn get_template_for_pr(&self) -> String {
+    async fn get_template_for_pr(&self, base: String) -> String {
         let cfg = config::get_full_config();
         let linked_issue = cfg.saved.linked_issue;
-        let main_branch = cfg.saved.repo_main_branch.clone();
-        let mut template = self.get_git_log_from_base_branch(main_branch);
+        let mut template = self.get_git_log_from_base_branch(base);
 
         match linked_issue {
             Some(0) => {},
