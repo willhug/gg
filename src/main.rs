@@ -194,20 +194,20 @@ async fn main() ->  Result<(), Box<dyn std::error::Error>> {
         },
         Cmd::Push { force, start} => {
             let cur = git::current_branch();
-            git::push(&cur, force);
+            let mut branches = vec![cur.clone()];
             if start {
-                let parsed = git::parse_branch(cur);
-                git::push(&parsed.start(), force);
+                branches.push(git::parse_branch(cur).start());
             }
+            git::push(branches, force);
         },
         Cmd::Pr { use_start} => {
             let branch = git::current_parsed_branch();
-            git::push(&branch.full(), true);
+            git::push_one(branch.full(), true);
             let cfg = config::get_full_config();
             let github = GithubRepo::new(cfg).await;
             let base = match use_start {
                 true => {
-                    git::push(&branch.start(), true);
+                    git::push_one(branch.start(), true);
                     Some(branch.start())
                 },
                 false => None,
