@@ -1,4 +1,4 @@
-mod branches;
+pub mod branches;
 mod app;
 
 use async_trait::async_trait;
