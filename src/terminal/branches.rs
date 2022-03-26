@@ -1,21 +1,37 @@
-use std::{error::Error, collections::{HashMap, HashSet}};
-use termion::event::Key;
-use tui::{Frame, backend::Backend, layout::{Constraint, Direction, Layout}, style::{Color, Style}, widgets::{Block, Borders, Cell, Row, Table}};
 use async_trait::async_trait;
+use std::{
+    collections::{HashMap, HashSet},
+    error::Error,
+};
+use termion::event::Key;
+use tui::{
+    backend::Backend,
+    layout::{Constraint, Direction, Layout},
+    style::{Color, Style},
+    widgets::{Block, Borders, Cell, Row, Table},
+    Frame,
+};
 
-use crate::{git::{self, parse_branch, is_start_branch}, github::{GithubRepo, pr::Pr}};
+use crate::{
+    git::{self, is_start_branch, parse_branch},
+    github::{pr::Pr, GithubRepo},
+};
 
-use super::{InputResult, app::App};
+use super::{app::App, InputResult};
 
-
-struct BranchWithInfo {
-    branch: String,
-    current: bool,
-    has_start: bool,
-    pr: Option<Pr>,
+pub(crate) struct BranchWithInfo {
+    pub(crate) branch: String,
+    pub(crate) current: bool,
+    pub(crate) has_start: bool,
+    pub(crate) pr: Option<Pr>,
 }
 
-static WIDTHS: &[tui::layout::Constraint; 4] = &[Constraint::Length(1), Constraint::Length(1), Constraint::Length(50), Constraint::Length(50)];
+static WIDTHS: &[tui::layout::Constraint; 4] = &[
+    Constraint::Length(1),
+    Constraint::Length(1),
+    Constraint::Length(50),
+    Constraint::Length(50),
+];
 
 impl BranchWithInfo {
     fn to_row(&self, selected: bool) -> Row {
@@ -40,19 +56,20 @@ impl BranchWithInfo {
                         col = Color::LightRed;
                     }
                     Cell::from(pull.url.as_str()).style(style.fg(col))
-                },
+                }
                 None => Cell::from("N/A").style(style.fg(Color::Red)),
             },
-        ]).style(style)
+        ])
+        .style(style)
     }
-
 
     pub(crate) fn set_pr(&mut self, pr: Option<Pr>) {
         self.pr = pr;
     }
 }
 
-async fn load_branch_infos(github: &GithubRepo) -> Vec<BranchWithInfo> {
+// TODO Move
+pub(crate) async fn load_branch_infos(github: &GithubRepo) -> Vec<BranchWithInfo> {
     let branches = git::all_branches();
     let mut br_map = HashSet::new();
     let current_branch = git::current_branch();
@@ -64,10 +81,9 @@ async fn load_branch_infos(github: &GithubRepo) -> Vec<BranchWithInfo> {
     for pr in prs {
         pr_map.insert(pr.branch.clone(), pr);
     }
-    let mut branch_infos: Vec<BranchWithInfo> = branches.into_iter()
-        .filter(|x| {
-            !is_start_branch(x)
-        })
+    let mut branch_infos: Vec<BranchWithInfo> = branches
+        .into_iter()
+        .filter(|x| !is_start_branch(x))
         .map(|branch| {
             let parsed_br = parse_branch(branch.clone());
             BranchWithInfo {
@@ -89,7 +105,7 @@ pub(super) struct PullApp {
     // TODO Not only pulls, include branches
     pulls: Vec<BranchWithInfo>,
     selection: usize,
-    github: GithubRepo
+    github: GithubRepo,
 }
 
 impl PullApp {
@@ -109,13 +125,13 @@ impl PullApp {
 
     fn down(&mut self) {
         if self.selection < self.pulls.len() - 1 {
-            self.selection+=1;
+            self.selection += 1;
         }
     }
 
     fn up(&mut self) {
         if self.selection > 0 {
-            self.selection-=1;
+            self.selection -= 1;
         }
     }
 }
@@ -133,17 +149,21 @@ impl App for PullApp {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .margin(1)
-            .constraints([
-                Constraint::Percentage(100),
-            ].as_ref())
+            .constraints([Constraint::Percentage(100)].as_ref())
             .split(f.size());
         if self.pulls.is_empty() {
-            f.render_widget(Block::default().borders(Borders::ALL).title("No Branches"), chunks[0]);
-            return
+            f.render_widget(
+                Block::default().borders(Borders::ALL).title("No Branches"),
+                chunks[0],
+            );
+            return;
         }
-        let items: Vec<Row> = self.pulls.iter().enumerate().map(|(idx, i)| {
-            i.to_row(idx == self.selection)
-        }).collect();
+        let items: Vec<Row> = self
+            .pulls
+            .iter()
+            .enumerate()
+            .map(|(idx, i)| i.to_row(idx == self.selection))
+            .collect();
         let block = Table::new(items)
             .widths(WIDTHS)
             .column_spacing(1)
@@ -151,37 +171,39 @@ impl App for PullApp {
         f.render_widget(block, chunks[0]);
     }
 
-    async fn handle_input(&mut self, input: Key) -> Result<InputResult, Box<dyn Error>>{
+    async fn handle_input(&mut self, input: Key) -> Result<InputResult, Box<dyn Error>> {
         match input {
             Key::Esc | Key::Ctrl('c') | Key::Char('q') => {
                 return Ok(InputResult::Exit);
-            },
+            }
             Key::Char('d') => {
                 let selected_branch = &self.pulls[self.selection];
                 git::delete_branch_all(selected_branch.branch.clone());
                 if selected_branch.has_start {
-                    git::delete_branch_all(git::parse_branch(selected_branch.branch.clone()).start());
+                    git::delete_branch_all(
+                        git::parse_branch(selected_branch.branch.clone()).start(),
+                    );
                 }
                 self.update().await;
-            },
+            }
             Key::Char('j') | Key::Down => {
                 self.down();
-            },
+            }
             Key::Char('k') | Key::Up => {
                 self.up();
-            },
+            }
             Key::Char('c') => {
                 let selected_branch = &self.pulls[self.selection];
                 git::checkout(&selected_branch.branch);
                 self.update().await;
-            },
+            }
             Key::Char('\n') => {
                 let i = &self.pulls[self.selection];
                 match &i.pr {
                     Some(pr) => {
                         open::that(&pr.url.as_str()).unwrap();
-                    },
-                    None => {},
+                    }
+                    None => {}
                 }
             }
             _ => {
