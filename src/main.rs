@@ -107,7 +107,7 @@ enum Cmd {
     Terminal {},
     #[structopt(about = "Open a tui terminal for branches record info")]
     Branches {},
-    #[structopt(about = "List existing branches (with start info)")]
+    #[structopt(name = "br", about = "List existing branches (with start info)")]
     Branch {},
     #[structopt(about = "Manage status/daily record info")]
     Status(StatusSubcommand),
@@ -306,22 +306,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!(
                     "{} {} {}\t{}",
                     match branch.current {
-                        true => "*",
-                        false => " ",
+                        true => color::bold(color::green("*")),
+                        false => " ".to_string(),
                     },
                     match branch.has_start {
-                        true => "w/s",
-                        false => "---",
+                        true => color::bold(color::white("w/s")),
+                        false => "---".to_string(),
                     },
-                    branch.branch,
+                    color::bold(branch.branch),
                     match branch.pr {
                         Some(pr) => format!(
                             "{} ({})",
-                            pr.url,
-                            match pr.closed {
-                                true => "Closed",
-                                false => "Open",
-                            },
+                            color::bold(color::white(pr.url)),
+                            color::bold(match pr.closed {
+                                true => color::red("Closed"),
+                                false => color::green("Open"),
+                            }),
                         ),
                         None => "".to_string(),
                     }
