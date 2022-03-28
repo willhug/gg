@@ -1,8 +1,8 @@
-pub mod pr;
 pub mod issue;
+pub mod pr;
 
-use octocrab::Octocrab;
 use crate::config::FullConfig;
+use octocrab::Octocrab;
 
 pub struct GithubRepo {
     pub org: String,
@@ -13,11 +13,16 @@ pub struct GithubRepo {
 
 impl GithubRepo {
     pub async fn new(cfg: FullConfig) -> GithubRepo {
+        let octo = Octocrab::builder()
+            .personal_token(cfg.github_token)
+            .build()
+            .unwrap();
+        let current_user = octo.current().user().await.unwrap().login;
         GithubRepo {
             org: cfg.saved.repo_org,
             repo: cfg.repo_name,
-            current_user: cfg.current_github_user,
-            octo: Octocrab::builder().personal_token(cfg.github_token).build().unwrap(),
+            current_user,
+            octo,
         }
     }
 }
