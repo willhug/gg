@@ -9,7 +9,6 @@ use std::str::from_utf8;
 pub struct FullConfig {
     pub saved: SavedConfig,
     pub repo_name: String,
-    pub current_github_user: String,
     pub github_token: String,
     pub status_file: PathBuf,
     pub status_file_backup_dir: PathBuf,
@@ -35,7 +34,6 @@ pub fn get_full_config() -> FullConfig {
     FullConfig {
         saved: get_saved_config(),
         repo_name: get_repo_name(),
-        current_github_user: "willhug".to_string(),
         github_token: std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required"),
         status_file: homedir.join("status.txt"),
         status_file_backup_dir: homedir.join("status_bu"),

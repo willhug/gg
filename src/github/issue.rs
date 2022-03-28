@@ -10,7 +10,6 @@ impl GithubRepo {
             .send()
             .await?;
 
-
         println!("Created Issue: {}", color::bold(color::green(res.html_url.to_string())));
 
         Ok(())
