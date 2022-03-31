@@ -98,8 +98,8 @@ enum Cmd {
         rebase_abort: bool,
         #[structopt(short = "c", long = "continue")]
         rebase_continue: bool,
-        #[structopt(short = "f", long = "fixup")]
-        rebase_fixup: bool,
+        #[structopt(long = "cleanup")]
+        rebase_cleanup: bool,
     },
     #[structopt(about = "Manage issues")]
     Issue(IssueSubcommand),
@@ -403,9 +403,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             strategy,
             rebase_abort,
             rebase_continue,
-            rebase_fixup,
+            rebase_cleanup,
         } => {
-            if rebase_fixup {
+            if rebase_cleanup {
                 fixup_rebase();
                 return Ok(());
             } else if rebase_abort {
