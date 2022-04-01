@@ -126,7 +126,10 @@ enum Cmd {
     #[structopt(about = "Shows the current diff for the branch")]
     Diff {},
     #[structopt(about = "delete closed branches")]
-    Cleanup {},
+    Cleanup {
+        #[structopt(short = "f", long = "force")]
+        force: bool,
+    },
     #[structopt(about = "rename current branch (and start branch)")]
     Rename {
         #[structopt(about = "new name")]
@@ -423,8 +426,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Cmd::Diff {} => {
             diff(current_parsed_branch().start(), None);
         }
-        Cmd::Cleanup {} => {
-            cleanup().await;
+        Cmd::Cleanup { force } => {
+            cleanup(force).await;
         }
         Cmd::Sync { force } => {
             sync(force);
@@ -467,7 +470,7 @@ fn migrate(prefix: &str, separator: &str) {
     update_prefix_and_split(prefix, separator);
 }
 
-async fn cleanup() {
+async fn cleanup(force: bool) {
     let cfg = config::get_full_config();
     let github = GithubRepo::new(cfg).await;
     let branches = git::all_branches();
@@ -484,19 +487,21 @@ async fn cleanup() {
         if !pr.closed {
             continue;
         }
+        if !force {
+            println!(
+                "Do you want to delete {}, {}, \"{}\"?",
+                pr.branch, pr.url, pr.title
+            );
+            if !confirm() {
+                continue;
+            }
+        }
+
         cleanup_closed_pr(&pr)
     }
 }
 
 fn cleanup_closed_pr(pr: &Pr) {
-    println!(
-        "Do you want to delete {}, {}, \"{}\"?",
-        pr.branch, pr.url, pr.title
-    );
-    if !confirm() {
-        return;
-    }
-
     let br = parse_branch(pr.branch.clone());
     println!("Deleting {} and {}", br.full(), br.start());
     delete_branch_all(br.full());
