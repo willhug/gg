@@ -210,7 +210,7 @@ impl GithubRepo {
             .octo
             .pulls(self.org.clone(), self.repo.clone())
             .merge(pr.number)
-            .method(octocrab::params::pulls::MergeMethod::Rebase)
+            .method(octocrab::params::pulls::MergeMethod::Squash)
             .send()
             .await
             .map_err(anyhow::Error::msg)?;
@@ -219,6 +219,33 @@ impl GithubRepo {
         if !res.merged {
             panic!("error merging time");
         }
+        Ok(())
+    }
+
+    // Change the base of a branch
+    pub async fn change_base(&self, full_branch: String, new_base: String) -> anyhow::Result<()> {
+        let pr = self
+            .pr_for_branch(&full_branch)
+            .await?
+            .expect("want be there");
+
+        let query = format!(
+            "
+                mutation {{
+                    updatePullRequest(input: {{baseRefName: \"{}\", pullRequestId:\"{}\"}}) {{
+                        clientMutationId
+                    }}
+                }}
+        ",
+            new_base,
+            pr.node_id,
+        );
+    println!("{}", query);
+    let _res: serde_json::Value = self
+            .octo
+            .graphql(query.as_str())
+            .await
+            .map_err(anyhow::Error::msg)?;
         Ok(())
     }
 }
