@@ -20,7 +20,7 @@ use structopt::StructOpt;
 
 use crate::{
     config::{get_full_config, update_prefix_and_split},
-    git::{delete_branch_all, parse_branch},
+    git::{current_branch, delete_branch_all, parse_branch},
 };
 
 #[derive(StructOpt)]
@@ -74,6 +74,8 @@ enum Cmd {
     Fetch {},
     #[structopt(about = "Run a fixup rebase on the current branch.")]
     Fixup {},
+    #[structopt(about = "Set the base to the main branch")]
+    Setbase {},
     #[structopt(about = "Show the status of the current branch (or all the branches)")]
     Log {
         #[structopt(short, long)]
@@ -343,15 +345,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         },
         Cmd::Debug {} => {
-            println!("trying get");
+            println!("trying change base");
             let github = GithubRepo::new(get_full_config()).await;
-            let mut hashset = HashSet::new();
-            hashset.insert("wh/checkoutMain/part-1.0".to_string());
-            let prs = github
-                .prs_for_branches(&hashset)
+            github
+                .change_base(
+                    "wh/pr_updatebase_part-1.0".to_string(),
+                    "wh/pr_starts_updatebase_part-1.0".to_string(),
+                )
                 .await
                 .expect("error getting PRs");
-            println!("result {} {:?}", prs.len(), prs);
         }
         Cmd::Init {} => {
             config::get_full_config();
@@ -441,6 +443,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             new.base = new_name;
             git::rename_branch(new.full().as_str(), cur.full().as_str());
             git::rename_branch(new.start().as_str(), cur.start().as_str());
+        }
+        Cmd::Setbase {} => {
+            let cfg = get_full_config();
+            let mainbr = cfg.saved.repo_main_branch;
+            let github = GithubRepo::new(cfg).await;
+            let cur = current_branch();
+            github
+                .change_base(cur, mainbr)
+                .await
+                .expect("error getting PRs");
         }
     }
     Ok(())
