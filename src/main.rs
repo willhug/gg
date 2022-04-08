@@ -321,12 +321,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     color::bold(branch.branch),
                     match branch.pr {
                         Some(pr) => format!(
-                            "{} ({})",
+                            "{} ({}) {} {}",
                             color::bold(color::white(pr.url)),
                             color::bold(match pr.closed {
                                 true => color::red("Closed"),
                                 false => color::green("Open"),
                             }),
+                            match pr.review_decision {
+                                Some(d) => d,
+                                None => "".to_string(),
+                            },
+                            pr.test_status,
                         ),
                         None => "".to_string(),
                     }
@@ -446,7 +451,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Cmd::Setbase {} => {
             let cfg = get_full_config();
-            let mainbr = cfg.saved.repo_main_branch;
+            let mainbr = cfg.saved.repo_main_branch.clone();
             let github = GithubRepo::new(cfg).await;
             let cur = current_branch();
             github
