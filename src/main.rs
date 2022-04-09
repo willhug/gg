@@ -328,10 +328,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 false => color::green("Open"),
                             }),
                             match pr.review_decision {
-                                Some(d) => d,
+                                Some(d) => {
+                                    match d.as_str() {
+                                        "APPROVED" => color::green('✔'),
+                                        "REVIEW_REQUIRED" => color::yellow('∞'),
+                                        "CHANGES_REQUESTED" => color::red('✖'),
+                                        val => val.to_string(),
+                                    }
+                                }
                                 None => "".to_string(),
                             },
-                            pr.test_status,
+                            match pr.test_status.as_str() {
+                                "SUCCESS" => color::green('✔'),
+                                "PENDING" => color::yellow('∞'),
+                                "FAILURE" => color::red('✖'),
+                                "ERROR" => color::red('✖'),
+                                "EXPECTED" => color::blue('?'),
+                                val => val.to_string(),
+                            },
                         ),
                         None => "".to_string(),
                     }
