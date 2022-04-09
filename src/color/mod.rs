@@ -16,6 +16,10 @@ pub fn green<S: Into<String>>(s: S) -> String {
     return format!("{}{}{}", color::Fg(color::Green), s.into(), color::Fg(color::Reset));
 }
 
+pub fn yellow<S: Into<String>>(s: S) -> String {
+    return format!("{}{}{}", color::Fg(color::Yellow), s.into(), color::Fg(color::Reset));
+}
+
 pub fn bold<S: Into<String>>(s: S) -> String {
     return format!("{}{}{}", style::Bold, s.into(), style::Reset);
 }
