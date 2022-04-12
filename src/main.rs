@@ -212,8 +212,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             git::new(branch.start().as_str());
             git::new(branch.full().as_str());
         }
-        Cmd::Push { force, start } => {
+        Cmd::Push { force, mut start } => {
             let cur = git::current_branch();
+            if !start && git::get_branch_for_dir(git::CheckoutDir::Prev).is_some() {
+                println!("You're trying to push a branch that has prev changes without specifying '-s', do you want to push the start branch as well?");
+                start = confirm();
+            }
             let mut branches = vec![cur.clone()];
             if start {
                 branches.push(git::parse_branch(cur).start());
