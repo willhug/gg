@@ -19,7 +19,7 @@ pub struct Pr {
 }
 
 impl GithubRepo {
-    pub async fn create_pr(&self, full_branch: String, base: Option<String>) -> anyhow::Result<()> {
+    pub async fn create_pr(&self, full_branch: String, base: Option<String>, is_draft: bool) -> anyhow::Result<()> {
         let existing_pr = self.pr_for_branch(&full_branch).await?;
         if let Some(pr) = existing_pr {
             println!("PR Already exists! {}", pr.html_url);
@@ -34,6 +34,7 @@ impl GithubRepo {
             .pulls(cfg.saved.repo_org, cfg.repo_name)
             .create(title, full_branch, base)
             .body(body)
+            .draft(Some(is_draft))
             .send()
             .await
             .map_err(anyhow::Error::msg)?;
