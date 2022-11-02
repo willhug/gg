@@ -69,6 +69,8 @@ enum Cmd {
     Pr {
         #[structopt(short = "s", long = "use-start")]
         use_start: bool,
+        #[structopt(short = "d", long = "draft")]
+        is_draft: bool,
     },
     #[structopt(about = "Fetch the current master/main.")]
     Fetch {},
@@ -224,7 +226,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             git::push(branches, force);
         }
-        Cmd::Pr { use_start } => {
+        Cmd::Pr { use_start, is_draft } => {
             let branch = git::current_parsed_branch();
             git::push_one(branch.full(), true);
             let cfg = config::get_full_config();
@@ -237,7 +239,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 false => None,
             };
             github
-                .create_pr(branch.full(), base)
+                .create_pr(branch.full(), base, is_draft)
                 .await
                 .expect("error creating PR");
         }
