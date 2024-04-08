@@ -2,39 +2,35 @@ use std::str::from_utf8;
 
 use std::process::Command;
 
-use config::get_saved_config;
 use crate::{color, config};
+use config::get_saved_config;
 
 pub(crate) fn new(branch: &str) {
     Command::new("git")
-            .arg("checkout")
-            .arg("-b")
-            .arg(branch.to_lowercase())
-            .output()
-            .expect("failed to create branch");
+        .arg("checkout")
+        .arg("-b")
+        .arg(branch.to_lowercase())
+        .output()
+        .expect("failed to create branch");
 }
 
 pub(crate) fn rename_branch(new_branch_name: &str, old_branch_name: &str) {
     Command::new("git")
-            .arg("branch")
-            .arg("-m")
-            .arg(old_branch_name)
-            .arg(new_branch_name)
-            .output()
-            .expect("failed to create branch");
+        .arg("branch")
+        .arg("-m")
+        .arg(old_branch_name)
+        .arg(new_branch_name)
+        .output()
+        .expect("failed to create branch");
 }
 
 pub(crate) fn all_branches() -> Vec<String> {
-    let out = match Command::new("git")
-            .arg("branch")
-            .output() {
-                Ok(output) => output,
-                Err(_e) => panic!("error!")
+    let out = match Command::new("git").arg("branch").output() {
+        Ok(output) => output,
+        Err(_e) => panic!("error!"),
     };
     let x: &[_] = &[' ', '\t', '\n', '\r', '*'];
-    let result = from_utf8(&out.stdout)
-        .expect("msg")
-        .trim_end_matches(x);
+    let result = from_utf8(&out.stdout).expect("msg").trim_end_matches(x);
     let mut branches = vec![];
     for line in result.split('\n') {
         let trimmed_line = line.trim_matches(x);
@@ -42,7 +38,6 @@ pub(crate) fn all_branches() -> Vec<String> {
     }
     branches
 }
-
 
 pub(crate) fn all_parsed_managed_branches() -> Vec<ParsedBranch> {
     all_managed_branches()
@@ -53,21 +48,23 @@ pub(crate) fn all_parsed_managed_branches() -> Vec<ParsedBranch> {
 
 pub(crate) fn all_managed_branches() -> Vec<String> {
     let cfg = config::get_full_config();
-    let start_prefix = format!("{}{}starts", cfg.saved.branch_prefix.clone(), cfg.saved.branch_split.clone());
-    let out = match Command::new("git")
-            .arg("branch")
-            .output() {
-                Ok(output) => output,
-                Err(_e) => panic!("error!")
+    let start_prefix = format!(
+        "{}{}starts",
+        cfg.saved.branch_prefix.clone(),
+        cfg.saved.branch_split.clone()
+    );
+    let out = match Command::new("git").arg("branch").output() {
+        Ok(output) => output,
+        Err(_e) => panic!("error!"),
     };
     let x: &[_] = &[' ', '\t', '\n', '\r', '*'];
-    let result = from_utf8(&out.stdout)
-        .expect("msg")
-        .trim_end_matches(x);
+    let result = from_utf8(&out.stdout).expect("msg").trim_end_matches(x);
     let mut branches = vec![];
     for line in result.split('\n') {
         let trimmed_line = line.trim_matches(x);
-        if trimmed_line.starts_with(cfg.saved.branch_prefix.as_str()) && !trimmed_line.starts_with(start_prefix.as_str()) {
+        if trimmed_line.starts_with(cfg.saved.branch_prefix.as_str())
+            && !trimmed_line.starts_with(start_prefix.as_str())
+        {
             branches.push(trimmed_line.to_string());
         }
     }
@@ -76,17 +73,16 @@ pub(crate) fn all_managed_branches() -> Vec<String> {
 
 pub(crate) fn current_branch() -> String {
     let out = match Command::new("git")
-            .arg("rev-parse")
-            .arg("--abbrev-ref")
-            .arg("HEAD")
-            .output() {
-                Ok(output) => output,
-                Err(_e) => panic!("error!")
+        .arg("rev-parse")
+        .arg("--abbrev-ref")
+        .arg("HEAD")
+        .output()
+    {
+        Ok(output) => output,
+        Err(_e) => panic!("error!"),
     };
     let x: &[_] = &[' ', '\t', '\n', '\r'];
-    let result = from_utf8(&out.stdout)
-        .expect("msg")
-        .trim_end_matches(x);
+    let result = from_utf8(&out.stdout).expect("msg").trim_end_matches(x);
     result.to_string()
 }
 
@@ -108,16 +104,14 @@ pub(crate) fn push(full_branches: Vec<String>, force: bool) {
         c.arg(branch);
     }
 
-    let res = c.status()
-     .expect("did not get successful response.");
+    let res = c.status().expect("did not get successful response.");
 
-     if res.success() {
-         println!("{}", color::bold(color::green("Success!")));
-     } else {
-         println!("{}", color::bold(color::red("Error pushing! (try '-f')")))
-     }
+    if res.success() {
+        println!("{}", color::bold(color::green("Success!")));
+    } else {
+        println!("{}", color::bold(color::red("Error pushing! (try '-f')")))
+    }
 }
-
 
 pub(crate) fn fetch_main() {
     let cfg = config::get_saved_config();
@@ -126,22 +120,22 @@ pub(crate) fn fetch_main() {
 
 pub(crate) fn fetch_branch(br: &str) {
     Command::new("git")
-            .arg("fetch")
-            .arg("-p")
-            .arg("origin")
-            .arg(br)
-            .output()
-            .expect("failed to fetch main branch");
+        .arg("fetch")
+        .arg("-p")
+        .arg("origin")
+        .arg(br)
+        .output()
+        .expect("failed to fetch main branch");
 }
 
 pub(crate) fn fixup_main() {
     let current_branch = current_parsed_branch();
     Command::new("git")
-            .arg("rebase")
-            .arg("-i")
-            .arg(current_branch.start())
-            .status()
-            .expect("failed to fixup main branch");
+        .arg("rebase")
+        .arg("-i")
+        .arg(current_branch.start())
+        .status()
+        .expect("failed to fixup main branch");
 }
 
 pub(crate) fn rebase(interactive: bool) {
@@ -152,12 +146,12 @@ pub(crate) fn rebase(interactive: bool) {
         c.arg("-i");
     }
 
-    assert!(
-        c.arg(format!("origin/{}", cfg.repo_main_branch))
-            .output()
-            .expect("failed to rebase")
-            .status.success(),
-    );
+    assert!(c
+        .arg(format!("origin/{}", cfg.repo_main_branch))
+        .output()
+        .expect("failed to rebase")
+        .status
+        .success(),);
 }
 
 pub(crate) fn checkout_main() {
@@ -166,14 +160,13 @@ pub(crate) fn checkout_main() {
 }
 
 pub(crate) fn checkout(branch: &String) {
-    assert!(
-        Command::new("git")
-            .arg("checkout")
-            .arg(branch)
-            .output()
-            .expect("failed to checkout main")
-            .status.success()
-    );
+    assert!(Command::new("git")
+        .arg("checkout")
+        .arg(branch)
+        .output()
+        .expect("failed to checkout main")
+        .status
+        .success());
 }
 
 pub(crate) fn reset(branch: String, hard: bool) {
@@ -182,9 +175,7 @@ pub(crate) fn reset(branch: String, hard: bool) {
     if hard {
         c.arg("--hard");
     }
-    c.arg(branch)
-        .output()
-        .expect("failed to reset");
+    c.arg(branch).output().expect("failed to reset");
 }
 
 pub(crate) fn force_branch_to_be(branch: &str, start_point: &str) {
@@ -230,7 +221,6 @@ pub(crate) fn delete_branch_local(branch: &str) {
         .expect("failed to delete branch");
 }
 
-
 #[derive(Clone, PartialEq)]
 pub(crate) enum CheckoutDir {
     Next,
@@ -243,34 +233,35 @@ pub(crate) enum CheckoutDir {
 pub(crate) fn get_branch_for_dir(dir: CheckoutDir) -> Option<String> {
     let parsed_branch = current_parsed_branch();
     let branches = get_sorted_matching_branches(&parsed_branch.base);
-    let location = branches.iter().position(|x| x.partx100 == parsed_branch.partx100)?;
+    let location = branches
+        .iter()
+        .position(|x| x.partx100 == parsed_branch.partx100)?;
 
     if branches.is_empty() {
-        return None
+        return None;
     }
     match dir {
         CheckoutDir::Next => {
-            if branches.len() <= location + 1  {
+            if branches.len() <= location + 1 {
                 None
             } else {
                 Some(branches[location + 1].full())
             }
-        },
+        }
         CheckoutDir::Prev => {
             if location < 1 {
                 None
             } else {
-                Some(branches[location-1].full())
+                Some(branches[location - 1].full())
             }
-        },
-        CheckoutDir::Start => {
-            Some(branches[0].full())
-        },
+        }
+        CheckoutDir::Start => Some(branches[0].full()),
         CheckoutDir::Part(part) => {
             let partx100 = partfloat_to_partx100(part);
-            branches.iter()
-            .find(|x| x.partx100.is_some() && x.partx100.unwrap() == partx100)
-            .map(|br| br.full())
+            branches
+                .iter()
+                .find(|x| x.partx100.is_some() && x.partx100.unwrap() == partx100)
+                .map(|br| br.full())
         }
         CheckoutDir::Unknown => None,
     }
@@ -278,16 +269,19 @@ pub(crate) fn get_branch_for_dir(dir: CheckoutDir) -> Option<String> {
 
 pub(crate) fn get_children_branches(branch: &ParsedBranch) -> Vec<ParsedBranch> {
     let branches = get_sorted_matching_branches(&branch.base);
-    branches.into_iter().filter(|x| x.partx100 > branch.partx100).collect()
+    branches
+        .into_iter()
+        .filter(|x| x.partx100 > branch.partx100)
+        .collect()
 }
 
 pub(crate) fn get_sorted_matching_branches(base: &str) -> Vec<ParsedBranch> {
-    let mut v: Vec<ParsedBranch> = all_managed_branches().into_iter().map(|b| {
-        parse_branch(b)
-    }).filter(|b| {
-        b.base == base
-    }).collect();
-    v.sort_by(|a, b| a.partx100.cmp(&b.partx100) );
+    let mut v: Vec<ParsedBranch> = all_managed_branches()
+        .into_iter()
+        .map(|b| parse_branch(b))
+        .filter(|b| b.base == base)
+        .collect();
+    v.sort_by(|a, b| a.partx100.cmp(&b.partx100));
     v
 }
 
@@ -307,10 +301,12 @@ impl ParsedBranch {
         let parts: Vec<String> = vec![
             self.prefix.clone(),
             Some(self.base.clone()),
-            self.partx100.map(|p| format!("part-{:.1}", (p as f32)/100.0)),
-        ].into_iter()
-            .flatten()
-            .collect();
+            self.partx100
+                .map(|p| format!("part-{:.1}", (p as f32) / 100.0)),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
         parts.join(split)
     }
 
@@ -323,26 +319,26 @@ impl ParsedBranch {
             self.prefix.clone(),
             Some("starts".to_string()),
             Some(self.base.clone()),
-            self.partx100.map(|p| format!("part-{:.1}", (p as f32)/100.0)),
-        ].into_iter()
-            .flatten()
-            .collect();
+            self.partx100
+                .map(|p| format!("part-{:.1}", (p as f32) / 100.0)),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
         parts.join(split)
     }
 
     pub(crate) fn remote_full(&self) -> String {
-        let parts: Vec<String> = vec![
-            "origin".to_string(),
-            self.full(),
-        ].into_iter().collect();
+        let parts: Vec<String> = vec!["origin".to_string(), self.full()]
+            .into_iter()
+            .collect();
         parts.join("/")
     }
 
     pub(crate) fn remote_start(&self) -> String {
-        let parts: Vec<String> = vec![
-            "origin".to_string(),
-            self.start(),
-        ].into_iter().collect();
+        let parts: Vec<String> = vec!["origin".to_string(), self.start()]
+            .into_iter()
+            .collect();
         parts.join("/")
     }
 }
@@ -370,19 +366,15 @@ pub(crate) fn parse_branch(orig_branch: String) -> ParsedBranch {
     };
 
     match branch.split_once(format!("{}part-", cfg.branch_split).as_str()) {
-        Some(res) => {
-            ParsedBranch {
-                prefix: found_prefix,
-                base: res.0.to_string(),
-                partx100: parse_partx100(res.1),
-            }
+        Some(res) => ParsedBranch {
+            prefix: found_prefix,
+            base: res.0.to_string(),
+            partx100: parse_partx100(res.1),
         },
-        None => {
-            ParsedBranch {
-                prefix: found_prefix,
-                base: branch.clone(),
-                partx100: None,
-            }
+        None => ParsedBranch {
+            prefix: found_prefix,
+            base: branch.clone(),
+            partx100: None,
         },
     }
 }
@@ -410,44 +402,37 @@ pub(crate) fn cherry_pick(start_ref: String, end_ref: String, strategy: Option<S
     }
 
     assert!(c.status().expect("Failed to cherry-pick").success());
-
 }
 
 pub(crate) fn cherry_abort() {
-    assert!(
-        Command::new("git")
-            .arg("cherry-pick")
-            .arg("--abort")
-            .status()
-            .expect("Failed to cherry-pick")
-            .success(),
-    );
+    assert!(Command::new("git")
+        .arg("cherry-pick")
+        .arg("--abort")
+        .status()
+        .expect("Failed to cherry-pick")
+        .success(),);
 }
 
 pub(crate) fn cherry_continue() {
-    assert!(
-        Command::new("git")
-            .arg("cherry-pick")
-            .arg("--continue")
-            .status()
-            .expect("Failed to cherry-pick")
-            .success()
-    );
+    assert!(Command::new("git")
+        .arg("cherry-pick")
+        .arg("--continue")
+        .status()
+        .expect("Failed to cherry-pick")
+        .success());
 }
 
 pub(crate) fn get_commit_hash(branch: String) -> String {
     let out = Command::new("git")
-            .arg("rev-parse")
-            .arg(branch.clone())
-            .output()
-            .expect("error getting hash");
+        .arg("rev-parse")
+        .arg(branch.clone())
+        .output()
+        .expect("error getting hash");
     if !out.status.success() {
         panic!("error getting hash {}", branch);
     }
     let x: &[_] = &[' ', '\t', '\n', '\r'];
-    let result = from_utf8(&out.stdout)
-        .expect("msg")
-        .trim_end_matches(x);
+    let result = from_utf8(&out.stdout).expect("msg").trim_end_matches(x);
     result.to_string()
 }
 
@@ -462,19 +447,31 @@ pub(crate) fn diff(start_ref: String, end_ref: Option<String>) {
         Some(end_ref) => format!("{}..{}", start_ref, end_ref),
         None => start_ref,
     });
-    c.status().expect("failed to fixup main branch");
+    c.status().expect("failed to diff branch");
 }
 
+pub(crate) fn status(start_ref: String, end_ref: Option<String>) {
+    let mut c = Command::new("git");
+    c.arg("diff");
+    c.arg("--stat");
+    c.arg(match end_ref {
+        Some(end_ref) => format!("{}..{}", start_ref, end_ref),
+        None => start_ref,
+    });
+    c.status().expect("failed to status branch");
+}
 
 pub(crate) fn sync(force: bool) {
     let br = current_parsed_branch();
     fetch_branch(br.full().as_str());
     fetch_branch(br.start().as_str());
 
-    if get_create_timestamp(br.full().as_str()) >= get_create_timestamp(br.remote_full().as_str()) && !force {
+    if get_create_timestamp(br.full().as_str()) >= get_create_timestamp(br.remote_full().as_str())
+        && !force
+    {
         println!("{} is newer than {}", br.full(), br.remote_full());
         println!("use --force to override");
-        return
+        return;
     }
 
     // Force the start & end to be remote branches
@@ -484,20 +481,18 @@ pub(crate) fn sync(force: bool) {
 
 fn get_create_timestamp(br: &str) -> i64 {
     let out = Command::new("git")
-            .arg("show")
-            .arg("--no-patch")
-            .arg("--no-notes")
-            .arg("--pretty=format:%ct")
-            .arg(br)
-            .output()
-            .expect("error getting hash");
+        .arg("show")
+        .arg("--no-patch")
+        .arg("--no-notes")
+        .arg("--pretty=format:%ct")
+        .arg(br)
+        .output()
+        .expect("error getting hash");
     if !out.status.success() {
         panic!("error getting timestamp {}", br);
     }
     let x: &[_] = &[' ', '\t', '\n', '\r'];
-    let result = from_utf8(&out.stdout)
-        .expect("msg")
-        .trim_end_matches(x);
+    let result = from_utf8(&out.stdout).expect("msg").trim_end_matches(x);
     println!("{}", result);
     result.parse::<i64>().expect("failed to parse timestamp")
 }

@@ -5,11 +5,11 @@ mod git;
 mod git_rebase;
 mod github;
 mod pomodoro;
-mod status;
+mod record;
 mod terminal;
 use anyhow::Result;
 use config::get_saved_config;
-use git::{current_parsed_branch, diff, sync};
+use git::{current_parsed_branch, diff, status, sync};
 use git_rebase::{abort_rebase, continue_rebase, fixup_rebase, rebase_all_children, start_rebase};
 use github::{pr::Pr, GithubRepo};
 use std::{
@@ -114,7 +114,7 @@ enum Cmd {
     #[structopt(name = "br", about = "List existing branches (with start info)")]
     Branch {},
     #[structopt(about = "Manage status/daily record info")]
-    Status(StatusSubcommand),
+    Record(RecordSubcommand),
     #[structopt(about = "Starts a pomodoro clock")]
     Pomodoro {
         #[structopt(short, long, default_value = "25")]
@@ -127,8 +127,10 @@ enum Cmd {
         #[structopt(about = "Branch to checkout", short, long)]
         dest: Option<String>,
     },
-    #[structopt(about = "Shows the current diff for the branch")]
+    #[structopt(name = "d", about = "Shows the current diff for the branch")]
     Diff {},
+    #[structopt(name = "s", about = "Shows the list of changed files for the branch")]
+    Status {},
     #[structopt(about = "delete closed branches")]
     Cleanup {
         #[structopt(short = "f", long = "force")]
@@ -169,7 +171,7 @@ enum IssueSubcommand {
 
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Commands for managing the status file")]
-enum StatusSubcommand {
+enum RecordSubcommand {
     #[structopt(about = "Write a new entry for today.")]
     Write {
         #[structopt(short, long)]
@@ -226,7 +228,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             git::push(branches, force);
         }
-        Cmd::Pr { use_start, is_draft } => {
+        Cmd::Pr {
+            use_start,
+            is_draft,
+        } => {
             let branch = git::current_parsed_branch();
             git::push_one(branch.full(), true);
             let cfg = config::get_full_config();
@@ -287,7 +292,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     config::update_selected_issue(0);
                 }
             }
-            status::write_status(format!("Landed: {}", pr.title), false);
+            record::write_status(format!("Landed: {}", pr.title), false);
         }
         Cmd::RebaseOld { interactive } => {
             git::rebase(interactive);
@@ -361,12 +366,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Cmd::Terminal {} => {
             terminal::start_terminal().await.unwrap();
         }
-        Cmd::Status(cmd) => match cmd {
-            StatusSubcommand::Write { body, todo } => {
-                status::write_status(body, todo);
+        Cmd::Record(cmd) => match cmd {
+            RecordSubcommand::Write { body, todo } => {
+                record::write_status(body, todo);
             }
-            StatusSubcommand::List {} => {
-                status::list_statuses();
+            RecordSubcommand::List {} => {
+                record::list_statuses();
             }
         },
         Cmd::Debug {} => {
@@ -452,6 +457,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Cmd::Diff {} => {
             diff(current_parsed_branch().start(), None);
+        }
+        Cmd::Status {} => {
+            status(current_parsed_branch().start(), None);
         }
         Cmd::Cleanup { force } => {
             cleanup(force).await;
