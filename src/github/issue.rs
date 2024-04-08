@@ -1,4 +1,4 @@
-use crate::{color, config::{self, get_full_config}, status, github::GithubRepo};
+use crate::{color, config::{self, get_full_config}, record, github::GithubRepo};
 use octocrab::models::{IssueState, issues::Issue};
 
 
@@ -56,7 +56,7 @@ impl GithubRepo {
             .await?;
 
         // Triggers TODO: Formalize this.
-        status::write_status(format!("Closed: {}", issue.title), false);
+        record::write_status(format!("Closed: {}", issue.title), false);
         let cfg = get_full_config();
         if cfg.saved.linked_issue.is_some() && cfg.saved.linked_issue.unwrap() == issue.number {
             config::clear_selected_issue();
