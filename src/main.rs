@@ -127,9 +127,9 @@ enum Cmd {
         #[structopt(about = "Branch to checkout", short, long)]
         dest: Option<String>,
     },
-    #[structopt(name = "d", about = "Shows the current diff for the branch")]
+    #[structopt(alias = "d", name = "diff", about = "Shows the current diff for the branch")]
     Diff {},
-    #[structopt(name = "s", about = "Shows the list of changed files for the branch")]
+    #[structopt(alias = "s", name = "status", about = "Shows the list of changed files for the branch")]
     Status {},
     #[structopt(about = "delete closed branches")]
     Cleanup {
