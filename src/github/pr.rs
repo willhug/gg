@@ -19,10 +19,20 @@ pub struct Pr {
 }
 
 impl GithubRepo {
-    pub async fn create_pr(&self, full_branch: String, base: Option<String>, is_draft: bool) -> anyhow::Result<()> {
+    pub async fn create_pr(
+        &self,
+        full_branch: String,
+        base: Option<String>,
+        is_draft: bool,
+    ) -> anyhow::Result<()> {
         let existing_pr = self.pr_for_branch(&full_branch).await?;
         if let Some(pr) = existing_pr {
-            println!("PR Already exists! {}", pr.html_url);
+            println!(
+                "PR Already exists! {}",
+                pr.html_url
+                    .map(|u| u.to_string())
+                    .unwrap_or("N/A".to_string())
+            );
             return Ok(());
         }
         let cfg = config::get_full_config();
@@ -39,7 +49,12 @@ impl GithubRepo {
             .await
             .map_err(anyhow::Error::msg)?;
 
-        println!("Created PR: {}", res.html_url);
+        println!(
+            "Created PR: {}",
+            res.html_url
+                .map(|u| u.to_string())
+                .unwrap_or("N/A".to_string())
+        );
 
         Ok(())
     }
@@ -95,15 +110,32 @@ impl GithubRepo {
 
     pub async fn pr_for_branch(&self, branch: &String) -> anyhow::Result<Option<PullRequest>> {
         let hub_head = format!("{}:{}", self.org, branch);
+        println!("{} {}", self.org, self.repo);
         let pulls = self
             .octo
             .pulls(self.org.clone(), self.repo.clone())
             .list()
-            .head(hub_head)
+            // .head(hub_head)
             .per_page(1)
             .send()
             .await
-            .map_err(anyhow::Error::msg)?;
+            .map_err(|p| {
+                println!("err: {:?}", p);
+                anyhow::Error::msg(p)
+            })?;
+
+        return Err(anyhow::Error::msg("tmp"));
+
+        // let pulls = match pulls {
+        //     Ok(p) => p,
+        //     Err(e) => {
+        //         let err = e.to_string();
+        //         if err.contains("Not Found") {
+        //             return Ok(Option::None)
+        //         }
+        //         return Err(anyhow::anyhow!(err));
+        //     },
+        // };
 
         if pulls.items.len() == 1 {
             return Ok(Option::Some(pulls.items.first().unwrap().clone()));
@@ -235,12 +267,12 @@ impl GithubRepo {
         let (state, url, title) = match pull {
             Some(p) => (
                 match p.state {
-                    IssueState::Closed => color::red("Closed"),
-                    IssueState::Open => color::green("Open"),
+                    Some(IssueState::Closed) => color::red("Closed"),
+                    Some(IssueState::Open) => color::green("Open"),
                     _ => color::red("Unknown"),
                 },
-                color::blue(p.html_url),
-                p.title,
+                color::blue(p.html_url.unwrap()),
+                p.title.unwrap_or("".to_string()),
             ),
             None => (color::white("N/A"), color::white("N/A"), "".to_string()),
         };
@@ -292,7 +324,8 @@ impl GithubRepo {
                     }}
                 }}
         ",
-            new_base, pr.node_id,
+            new_base,
+            pr.node_id.unwrap_or("".to_string()),
         );
         println!("{}", query);
         let _res: serde_json::Value = self
