@@ -34,7 +34,7 @@ pub fn get_full_config() -> FullConfig {
     FullConfig {
         saved: get_saved_config(),
         repo_name: get_repo_name(),
-        github_token: std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env var is required"),
+        github_token: std::env::var("GITHUB_TOKEN2").expect("GITHUB_TOKEN2 env var is required"),
         status_file: homedir.join("status.txt"),
         status_file_backup_dir: homedir.join("status_bu"),
     }

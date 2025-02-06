@@ -360,14 +360,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 }
                                 None => color::yellow('∞'),
                             },
-                            match pr.test_status.as_str() {
-                                "SUCCESS" => color::green('✔'),
-                                "PENDING" => color::yellow('∞'),
-                                "FAILURE" => color::red('✖'),
-                                "ERROR" => color::red('✖'),
-                                "EXPECTED" => color::blue('?'),
-                                val => val.to_string(),
-                            },
+                            "TODO".to_string(),
                         ),
                         None => "".to_string(),
                     }

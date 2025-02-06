@@ -2,20 +2,20 @@ use crate::file;
 use crate::{color, config, github::GithubRepo};
 use octocrab::models::pulls::PullRequest;
 use octocrab::models::IssueState;
+use serde::Deserialize;
 use std::str::from_utf8;
 use std::{collections::HashSet, process::Command};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Pr {
     pub closed: bool,
     pub title: String,
+    #[serde(rename = "headRefName")]
     pub branch: String,
     pub url: String,
-    pub state: String,
+    #[serde(rename = "reviewDecision")]
     pub review_decision: Option<String>,
     pub mergeable: String,
-    pub auto_merge_request: bool,
-    pub test_status: String,
 }
 
 impl GithubRepo {
@@ -25,36 +25,33 @@ impl GithubRepo {
         base: Option<String>,
         is_draft: bool,
     ) -> anyhow::Result<()> {
-        let existing_pr = self.pr_for_branch(&full_branch).await?;
-        if let Some(pr) = existing_pr {
-            println!(
-                "PR Already exists! {}",
-                pr.html_url
-                    .map(|u| u.to_string())
-                    .unwrap_or("N/A".to_string())
-            );
-            return Ok(());
-        }
+        // TODO Check if PR already exists.
+
         let cfg = config::get_full_config();
         let base = base.unwrap_or(cfg.saved.repo_main_branch);
-
         let (title, body) = self.get_title_and_body(base.clone()).await;
-        let res = self
-            .octo
-            .pulls(cfg.saved.repo_org, cfg.repo_name)
-            .create(title, full_branch, base)
-            .body(body)
-            .draft(Some(is_draft))
-            .send()
-            .await
-            .map_err(anyhow::Error::msg)?;
 
-        println!(
-            "Created PR: {}",
-            res.html_url
-                .map(|u| u.to_string())
-                .unwrap_or("N/A".to_string())
-        );
+        let mut cmd = Command::new("gh");
+        cmd.arg("pr")
+            .arg("create")
+            .arg("-H")
+            .arg(full_branch)
+            .arg("-B")
+            .arg(base)
+            .arg("-b")
+            .arg(body)
+            .arg("-t")
+            .arg(title);
+
+        if is_draft {
+            cmd.arg("--draft");
+        }
+        let res = cmd.output().map_err(anyhow::Error::msg)?;
+
+        let result = from_utf8(&res.stdout).expect("msg");
+        let err = from_utf8(&res.stderr).expect("msg");
+        println!("Out: {}", result.to_string());
+        println!("Err: {}", err.to_string());
 
         Ok(())
     }
@@ -110,12 +107,11 @@ impl GithubRepo {
 
     pub async fn pr_for_branch(&self, branch: &String) -> anyhow::Result<Option<PullRequest>> {
         let hub_head = format!("{}:{}", self.org, branch);
-        println!("{} {}", self.org, self.repo);
         let pulls = self
             .octo
             .pulls(self.org.clone(), self.repo.clone())
             .list()
-            // .head(hub_head)
+            .head(hub_head)
             .per_page(1)
             .send()
             .await
@@ -124,7 +120,7 @@ impl GithubRepo {
                 anyhow::Error::msg(p)
             })?;
 
-        return Err(anyhow::Error::msg("tmp"));
+        // return Err(anyhow::Error::msg("tmp"));
 
         // let pulls = match pulls {
         //     Ok(p) => p,
@@ -144,6 +140,39 @@ impl GithubRepo {
     }
 
     pub async fn prs_for_branches(&self, branches: &HashSet<String>) -> anyhow::Result<Vec<Pr>> {
+        // self.prs_for_branches_octo(branches).await
+        self.prs_for_branches_cmd(branches).await
+    }
+
+    pub async fn prs_for_branches_cmd(
+        &self,
+        branches: &HashSet<String>,
+    ) -> anyhow::Result<Vec<Pr>> {
+        let mut cmd = Command::new("gh");
+        cmd.arg("pr")
+            .arg("list")
+            .arg("--author")
+            .arg("@me")
+            .arg("-s")
+            .arg("all")
+            .arg("-L")
+            .arg("100")
+            .arg("--json")
+            .arg("closed,title,headRefName,url,reviewDecision,mergeable");
+        let res = cmd.output().map_err(anyhow::Error::msg)?;
+        let out = String::from_utf8(res.stdout).map_err(anyhow::Error::msg)?;
+        let err = String::from_utf8(res.stderr).map_err(anyhow::Error::msg)?;
+        if !err.is_empty() {
+            println!("Err: {}", err);
+        }
+        let prs: Vec<Pr> = serde_json::from_str(&out).map_err(anyhow::Error::msg)?;
+        Ok(prs)
+    }
+
+    pub async fn prs_for_branches_octo(
+        &self,
+        branches: &HashSet<String>,
+    ) -> anyhow::Result<Vec<Pr>> {
         let query = format!(
             "
         {{
@@ -212,30 +241,6 @@ impl GithubRepo {
                     .unwrap()
                     .as_object()
                     .unwrap();
-                let test_status = match node
-                    .get("commits")
-                    .unwrap()
-                    .as_object()
-                    .unwrap()
-                    .get("nodes")
-                    .unwrap()
-                    .as_array()
-                    .unwrap()
-                    .first()
-                    .unwrap()
-                    .as_object()
-                    .unwrap()
-                    .get("commit")
-                    .unwrap()
-                    .as_object()
-                    .unwrap()
-                    .get("status")
-                    .unwrap()
-                    .as_object()
-                {
-                    Some(val) => val.get("state").unwrap().as_str().unwrap().to_string(),
-                    None => "N/A".to_string(),
-                };
                 Pr {
                     // TODO
                     closed: node.get("closed").unwrap().as_bool().unwrap(),
@@ -247,15 +252,12 @@ impl GithubRepo {
                         .unwrap()
                         .to_string(),
                     url: node.get("url").unwrap().as_str().unwrap().to_string(),
-                    state: node.get("state").unwrap().as_str().unwrap().to_string(),
                     review_decision: node
                         .get("reviewDecision")
                         .unwrap()
                         .as_str()
                         .map(|f| f.to_string()),
                     mergeable: node.get("mergeable").unwrap().as_str().unwrap().to_string(),
-                    auto_merge_request: node.get("autoMergeRequest").is_some(),
-                    test_status,
                 }
             })
             .filter(|x| branches.contains(x.branch.as_str()))
