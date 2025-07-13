@@ -46,6 +46,7 @@ impl GithubRepo {
 
     async fn get_title_and_body(&self, base: String) -> (String, String) {
         let res = file::open_vim(self.get_template_for_pr(base).await);
+        println!("Using body: \n{}", res);
         let (title, body) = res.split_once('\n').expect("wanted at least two lines");
         (title.to_string(), body.to_string())
     }
