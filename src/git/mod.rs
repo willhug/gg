@@ -178,12 +178,20 @@ pub(crate) fn reset(branch: String, hard: bool) {
     c.arg(branch).output().expect("failed to reset");
 }
 
-pub(crate) fn force_branch_to_be(branch: &str, start_point: &str) {
+pub(crate) fn force_branch_to_be<B, N>(branch: B, new_ref: N) 
+where
+    B: AsRef<str>,
+    N: AsRef<str>,
+{
+    if current_branch() == branch.as_ref() {
+        reset(new_ref.as_ref().to_string(), true);
+        return;
+    }
     Command::new("git")
         .arg("branch")
         .arg("-f")
-        .arg(branch)
-        .arg(start_point)
+        .arg(branch.as_ref())
+        .arg(new_ref.as_ref())
         .status()
         .expect("failed to delete branch");
 }

@@ -1,6 +1,6 @@
 use std::{fs, process::Command, str::from_utf8};
 
-use crate::git::{parse_branch, ParsedBranch, get_commit_hash, checkout, reset, delete_branch_all, new, cherry_pick, current_branch, get_branch_for_dir, current_parsed_branch, cherry_abort, cherry_continue, assert_branch_exists, get_children_branches, delete_branch_local};
+use crate::git::{assert_branch_exists, checkout, cherry_abort, cherry_continue, cherry_pick, current_branch, current_parsed_branch, delete_branch_all, delete_branch_local, force_branch_to_be, get_branch_for_dir, get_children_branches, get_commit_hash, new, parse_branch, reset, ParsedBranch};
 
 pub(crate) fn rebase_all_children(strategy: Option<String>) {
     let cur = current_parsed_branch();
@@ -42,25 +42,23 @@ pub(crate) fn continue_rebase() {
 }
 
 fn rebase_onto(branch_to_rebase: TmpBranchWrapper, onto: String, strategy: Option<String>) {
+    if branches_are_equivalent(branch_to_rebase.inner.start(), branch_to_rebase.inner.full()) {
+        println!("There are no commits to rebase, fast forwarding the branches");
+        force_branch_to_be(&branch_to_rebase.inner.full(), &onto);
+        force_branch_to_be(&branch_to_rebase.inner.start(), &onto);
+        return;
+    }
+    // TODO CREATE WORKTREE TO ISOLATE BRANCH REBASE
     println!("Rebasing {} onto {} via cherry-picks", branch_to_rebase.inner.full(), onto);
     checkout(&onto);
     new(branch_to_rebase.tmp_start_branch_name().as_str());
     new(branch_to_rebase.tmp_branch_name().as_str());
-
-    if branches_are_equivalent(branch_to_rebase.inner.start(), branch_to_rebase.inner.full()) {
-        println!("There are no commits to rebase, fast forwarding the branches");
-        checkout(&branch_to_rebase.inner.start());
-        reset(branch_to_rebase.tmp_branch_name(), true);
-        checkout(&branch_to_rebase.inner.full());
-        reset(branch_to_rebase.tmp_branch_name(), true);
-    } else {
-        println!("Cherry-picking changes onto branch {}", onto);
-        cherry_pick(
-            branch_to_rebase.inner.start(),
-            branch_to_rebase.inner.full(),
-            strategy,
-        );
-    }
+    println!("Cherry-picking changes onto branch {}", onto);
+    cherry_pick(
+        branch_to_rebase.inner.start(),
+        branch_to_rebase.inner.full(),
+        strategy,
+    );
     finish_rebase(branch_to_rebase);
 }
 
