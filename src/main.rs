@@ -127,9 +127,17 @@ enum Cmd {
         #[structopt(about = "Branch to checkout", short, long)]
         dest: Option<String>,
     },
-    #[structopt(alias = "d", name = "diff", about = "Shows the current diff for the branch")]
+    #[structopt(
+        alias = "d",
+        name = "diff",
+        about = "Shows the current diff for the branch"
+    )]
     Diff {},
-    #[structopt(alias = "s", name = "status", about = "Shows the list of changed files for the branch")]
+    #[structopt(
+        alias = "s",
+        name = "status",
+        about = "Shows the list of changed files for the branch"
+    )]
     Status {},
     #[structopt(about = "delete closed branches")]
     Cleanup {
@@ -292,7 +300,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     config::update_selected_issue(0);
                 }
             }
-            record::write_status(format!("Landed: {}", pr.title), false);
+            record::write_status(
+                format!("Landed: {}", pr.title.unwrap_or("n/a".to_string())),
+                false,
+            );
         }
         Cmd::RebaseOld { interactive } => {
             git::rebase(interactive);
@@ -353,14 +364,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 }
                                 None => color::yellow('∞'),
                             },
-                            match pr.test_status.as_str() {
-                                "SUCCESS" => color::green('✔'),
-                                "PENDING" => color::yellow('∞'),
-                                "FAILURE" => color::red('✖'),
-                                "ERROR" => color::red('✖'),
-                                "EXPECTED" => color::blue('?'),
-                                val => val.to_string(),
-                            },
+                            "TODO".to_string(),
                         ),
                         None => "".to_string(),
                     }

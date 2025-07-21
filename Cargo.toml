@@ -7,7 +7,7 @@ edition = "2018"
 
 [dependencies]
 clap = "3.0.0-beta.4"
-octocrab = "0.9"
+octocrab = "0.42.1"
 futures = "0.3"
 tokio = {version = "1.12.0", features = ["full"] }
 tempfile = "3"
