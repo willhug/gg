@@ -317,10 +317,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Cmd::Branch {} => {
             let github = GithubRepo::new(get_full_config()).await;
-            let branches = terminal::branches::load_branch_infos(&github).await;
+            let mut branches = terminal::branches::load_branch_infos(&github).await;
+            branches.sort_by_key(|b| b.date_created);
             for branch in branches {
                 println!(
-                    "{} {} {}\t{}",
+                    "{} {} {} {}\t{}",
+                    chrono::NaiveDateTime::from_timestamp_opt(branch.date_created, 0)
+                        .unwrap()
+                        .format("%Y-%m-%d"),
                     match branch.current {
                         true => color::bold(color::green("*")),
                         false => " ".to_string(),

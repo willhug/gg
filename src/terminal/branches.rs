@@ -21,6 +21,7 @@ use super::{app::App, InputResult};
 
 pub(crate) struct BranchWithInfo {
     pub(crate) branch: String,
+    pub(crate) date_created: i64,
     pub(crate) current: bool,
     pub(crate) has_start: bool,
     pub(crate) pr: Option<Pr>,
@@ -70,27 +71,30 @@ impl BranchWithInfo {
 
 // TODO Move
 pub(crate) async fn load_branch_infos(github: &GithubRepo) -> Vec<BranchWithInfo> {
-    let branches = git::all_branches();
-    let mut br_map = HashSet::new();
+    let branches = git::all_branch_infos();
+    let mut br_map = HashMap::new();
+    let mut br_set = HashSet::new();
     let current_branch = git::current_branch();
     for branch in &branches {
-        br_map.insert(branch.clone());
+        br_map.insert(branch.name.clone(), branch);
+        br_set.insert(branch.name.clone());
     }
-    let prs = github.prs_for_branches(&br_map).await.unwrap();
+    let prs = github.prs_for_branches(&br_set).await.unwrap();
     let mut pr_map = HashMap::new();
     for pr in prs {
         pr_map.insert(pr.branch.clone(), pr);
     }
-    let mut branch_infos: Vec<BranchWithInfo> = branches
+    let mut branch_infos: Vec<BranchWithInfo> = branches.clone()
         .into_iter()
-        .filter(|x| !is_start_branch(x))
+        .filter(|x| !is_start_branch(&x.name))
         .map(|branch| {
-            let parsed_br = parse_branch(branch.clone());
+            let parsed_br = parse_branch(branch.name.clone());
             BranchWithInfo {
-                current: branch == current_branch,
+                date_created: branch.date_created,
+                current: branch.name == current_branch,
                 pr: None,
-                has_start: br_map.contains(&parsed_br.start()),
-                branch,
+                has_start: br_map.contains_key(&parsed_br.start()),
+                branch: branch.name,
             }
         })
         .collect();
