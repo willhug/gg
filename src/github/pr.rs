@@ -116,7 +116,7 @@ impl GithubRepo {
         let query = format!(
             "
         {{
-            search(first:100, query: \"is:pr author:{} org:{} repo:{}\", type: ISSUE) {{
+            search(first:100, query: \"is:pr author:{} repo:{}/{}\", type: ISSUE) {{
               edges {{
                 node {{
                   ... on PullRequest {{

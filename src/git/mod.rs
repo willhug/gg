@@ -24,6 +24,38 @@ pub(crate) fn rename_branch(new_branch_name: &str, old_branch_name: &str) {
         .expect("failed to create branch");
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Branch {
+    pub(crate) name: String,
+    pub(crate) date_created: i64,
+}
+
+impl Branch {
+    pub fn new(name: String, date_created: i64) -> Self {
+        Self { name, date_created }
+    }
+}
+
+pub(crate) fn all_branch_infos() -> Vec<Branch> {
+    // git for-each-ref --sort=-committerdate refs/heads/ --format='%(committerdate:unix) %(refname:short)'
+    let out = Command::new("git")
+        .arg("for-each-ref")
+        .arg("--sort=-committerdate")
+        .arg("refs/heads/")
+        .arg("--format=%(committerdate:unix) %(refname:short)")
+        .output()
+        .expect("failed to get branch infos");
+    let x: &[_] = &[' ', '\t', '\n', '\r', '*'];
+    let result = from_utf8(&out.stdout).expect("msg").trim_end_matches(x);
+    let mut branches = vec![];
+    for line in result.split('\n') {
+        let trimmed_line = line.trim_matches(x);
+        let parts = trimmed_line.split_whitespace().collect::<Vec<&str>>();
+        branches.push(Branch::new(parts[1].to_string(), parts[0].parse::<i64>().unwrap()));
+    }
+    branches
+}
+
 pub(crate) fn all_branches() -> Vec<String> {
     let out = match Command::new("git").arg("branch").output() {
         Ok(output) => output,
