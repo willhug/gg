@@ -19,10 +19,19 @@ pub struct Pr {
 }
 
 impl GithubRepo {
-    pub async fn create_pr(&self, full_branch: String, base: Option<String>, is_draft: bool) -> anyhow::Result<()> {
+    pub async fn create_pr(
+        &self,
+        full_branch: String,
+        base: Option<String>,
+        is_draft: bool,
+    ) -> anyhow::Result<()> {
         let existing_pr = self.pr_for_branch(&full_branch).await?;
         if let Some(pr) = existing_pr {
-            println!("PR Already exists! {}", pr.html_url);
+            let url = pr
+                .html_url
+                .map(|u| u.to_string())
+                .unwrap_or_else(|| "Unknown URL".to_string());
+            println!("PR Already exists! {}", url);
             return Ok(());
         }
         let cfg = config::get_full_config();
@@ -39,7 +48,11 @@ impl GithubRepo {
             .await
             .map_err(anyhow::Error::msg)?;
 
-        println!("Created PR: {}", res.html_url);
+        let url = res
+            .html_url
+            .map(|u| u.to_string())
+            .unwrap_or_else(|| "Unknown URL".to_string());
+        println!("Created PR: {}", url);
 
         Ok(())
     }
@@ -236,12 +249,16 @@ impl GithubRepo {
         let (state, url, title) = match pull {
             Some(p) => (
                 match p.state {
-                    IssueState::Closed => color::red("Closed"),
-                    IssueState::Open => color::green("Open"),
+                    Some(IssueState::Closed) => color::red("Closed"),
+                    Some(IssueState::Open) => color::green("Open"),
                     _ => color::red("Unknown"),
                 },
-                color::blue(p.html_url),
-                p.title,
+                color::blue(
+                    p.html_url
+                        .map(|u| u.to_string())
+                        .unwrap_or_else(|| "Unknown URL".to_string()),
+                ),
+                p.title.unwrap_or_else(|| "Untitled".to_string()),
             ),
             None => (color::white("N/A"), color::white("N/A"), "".to_string()),
         };
@@ -293,7 +310,8 @@ impl GithubRepo {
                     }}
                 }}
         ",
-            new_base, pr.node_id,
+            new_base,
+            pr.node_id.as_ref().unwrap_or(&"".to_string()),
         );
         println!("{}", query);
         let _res: serde_json::Value = self

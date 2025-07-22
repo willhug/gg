@@ -17,7 +17,7 @@ pub struct FullConfig {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SavedConfig {
     pub repo_main_branch: String,
-    pub linked_issue: Option<i64>,
+    pub linked_issue: Option<u64>,
     pub branch_prefix: String,
     pub repo_org: String,
 
@@ -97,7 +97,7 @@ pub fn clear_selected_issue() {
     write_saved_config(cfg);
 }
 
-pub fn update_selected_issue(issue: i64) {
+pub fn update_selected_issue(issue: u64) {
     let mut cfg = get_saved_config();
 
     cfg.linked_issue = Some(issue);
@@ -105,7 +105,7 @@ pub fn update_selected_issue(issue: i64) {
     write_saved_config(cfg);
 }
 
-pub fn get_selected_issue_number() -> i64 {
+pub fn get_selected_issue_number() -> u64 {
     let cfg = get_saved_config();
     cfg.linked_issue.unwrap_or(0)
 }

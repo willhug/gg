@@ -1,17 +1,26 @@
-pub mod branches;
 mod app;
+pub mod branches;
 
 use async_trait::async_trait;
-use std::{error::Error, io, sync::mpsc, thread, time::Duration};
 use octocrab::models::issues::Issue;
-use tui::{Frame, Terminal, backend::Backend, style::{Color, Style}, text::{Span, Spans, Text}, widgets::{ListItem, Paragraph}};
-use tui::backend::TermionBackend;
-use termion::{event::Key, raw::IntoRawMode, screen::AlternateScreen};
+use std::{error::Error, io, sync::mpsc, thread, time::Duration};
 use termion::input::TermRead;
+use termion::{event::Key, raw::IntoRawMode, screen::AlternateScreen};
+use tui::backend::TermionBackend;
+use tui::layout::{Constraint, Direction, Layout};
 use tui::widgets::{Block, Borders, List};
-use tui::layout::{Layout, Constraint, Direction};
+use tui::{
+    backend::Backend,
+    style::{Color, Style},
+    text::{Span, Spans, Text},
+    widgets::{ListItem, Paragraph},
+    Frame, Terminal,
+};
 
-use crate::{config::{self, get_full_config}, github::GithubRepo};
+use crate::{
+    config::{self, get_full_config},
+    github::GithubRepo,
+};
 
 use self::{app::App, branches::PullApp};
 
@@ -29,7 +38,6 @@ pub struct Events {
     #[allow(dead_code)]
     tick_handle: thread::JoinHandle<()>,
 }
-
 
 impl Events {
     pub fn new() -> Events {
@@ -84,14 +92,13 @@ enum InputResult {
     Exit,
 }
 
-
 struct IssueViewApp {
     issues: Vec<octocrab::models::issues::Issue>,
     selection: usize,
     input_state: InputState,
     buffered_issue_title: String,
-    selected_issue: i64,
-    github: GithubRepo
+    selected_issue: u64,
+    github: GithubRepo,
 }
 
 impl IssueViewApp {
@@ -108,13 +115,13 @@ impl IssueViewApp {
 
     fn down(&mut self) {
         if self.selection < self.issues.len() - 1 {
-            self.selection+=1;
+            self.selection += 1;
         }
     }
 
     fn up(&mut self) {
         if self.selection > 0 {
-            self.selection-=1;
+            self.selection -= 1;
         }
     }
 
@@ -141,74 +148,78 @@ impl App for IssueViewApp {
         self.selected_issue = config::get_selected_issue_number();
     }
 
-
     fn draw<B: Backend>(&self, f: &mut Frame<B>) {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .margin(1)
-            .constraints([
-                Constraint::Percentage(50),
-                Constraint::Percentage(50),
-            ].as_ref())
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
             .split(f.size());
-        let items: Vec<ListItem> = self.issues.iter().enumerate().map(|(idx, i)| {
-            let mut style = Style::default();
-            if idx == self.selection {
-                style = Style::default().bg(Color::LightGreen);
-            }
-            let mut prefix = " ";
-            if i.number == self.selected_issue {
-                prefix = "*";
-            }
-            ListItem::new(Spans::from(vec![
-                Span::styled(prefix, style.fg(Color::Red)),
-                Span::styled(i.html_url.as_str(), style.fg(Color::Blue)),
-                Span::styled(" ", style),
-                Span::styled(i.title.as_str(), style),
-            ]))
-        }).collect();
-        let block = List::new(items)
-            .block(Block::default().borders(Borders::ALL).title("ISSUES"));
+        let items: Vec<ListItem> = self
+            .issues
+            .iter()
+            .enumerate()
+            .map(|(idx, i)| {
+                let mut style = Style::default();
+                if idx == self.selection {
+                    style = Style::default().bg(Color::LightGreen);
+                }
+                let mut prefix = " ";
+                if i.number == self.selected_issue {
+                    prefix = "*";
+                }
+                ListItem::new(Spans::from(vec![
+                    Span::styled(prefix, style.fg(Color::Red)),
+                    Span::styled(i.html_url.as_str(), style.fg(Color::Blue)),
+                    Span::styled(" ", style),
+                    Span::styled(i.title.as_str(), style),
+                ]))
+            })
+            .collect();
+        let block = List::new(items).block(Block::default().borders(Borders::ALL).title("ISSUES"));
         f.render_widget(block, chunks[0]);
         if self.input_state == InputState::Create {
             let input = Paragraph::new(Text::from(Spans::from(self.buffered_issue_title.clone())))
-                .block(Block::default().borders(Borders::ALL).title("Create New Issue"));
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title("Create New Issue"),
+                );
             f.render_widget(input, chunks[1]);
         }
     }
 
-    async fn handle_input(&mut self, input: Key) -> Result<InputResult, Box<dyn Error>>{
+    async fn handle_input(&mut self, input: Key) -> Result<InputResult, Box<dyn Error>> {
         match self.input_state {
             InputState::Normal => match input {
                 Key::Esc | Key::Ctrl('c') | Key::Char('q') => {
                     return Ok(InputResult::Exit);
-                },
+                }
                 Key::Char('j') | Key::Down => {
                     self.down();
-                },
+                }
                 Key::Char('k') | Key::Up => {
                     self.up();
-                },
+                }
                 Key::Char('s') => {
                     let i = self.get_selected();
                     config::update_selected_issue(i.number);
                     self.selected_issue = i.number;
-                },
+                }
                 Key::Char('x') => {
                     config::update_selected_issue(0);
-                },
+                }
                 Key::Char('d') => {
                     let i = self.get_selected();
                     self.github.close_issue(i.number).await?;
                     self.update().await;
-                },
+                }
                 Key::Char('c') => {
                     self.set_input_state(InputState::Create);
-                },
+                }
                 Key::Char('\n') => {
                     let i = self.get_selected();
                     open::that(&i.html_url.as_str()).unwrap();
-                },
+                }
                 _ => {
                     println!("Unknown input!");
                 }
@@ -216,19 +227,21 @@ impl App for IssueViewApp {
             InputState::Create => match input {
                 Key::Esc | Key::Ctrl('c') => {
                     self.set_input_state(InputState::Normal);
-                },
+                }
                 Key::Backspace => {
                     self.buffered_issue_title.pop();
-                },
+                }
                 Key::Char('\n') => {
-                    self.github.create_issue(self.buffered_issue_title.clone().as_str(), "").await?;
+                    self.github
+                        .create_issue(self.buffered_issue_title.clone().as_str(), "")
+                        .await?;
                     self.set_input_state(InputState::Normal);
                     self.update().await;
-                },
+                }
                 Key::Char(c) => {
                     self.buffered_issue_title.push(c);
                 }
-                _ => {},
+                _ => {}
             },
         }
         Ok(InputResult::Continue) // TODO ENUM
@@ -248,22 +261,21 @@ async fn start_terminal_with_opts(view: View) -> Result<(), Box<dyn Error>> {
     match view {
         View::Issues => {
             run_loop(IssueViewApp::new(github).await).await?;
-        },
+        }
         View::Pulls => {
             run_loop(PullApp::new(github).await).await?;
-        },
+        }
     };
 
     Ok(())
 }
 
-async fn run_loop<T: App>(mut app: T) -> Result<(), Box<dyn Error>>{
+async fn run_loop<T: App>(mut app: T) -> Result<(), Box<dyn Error>> {
     let stdout = io::stdout().into_raw_mode()?;
     let stdout = AlternateScreen::from(stdout);
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     let events = Events::new();
-
 
     loop {
         terminal.draw(|f| {
@@ -274,7 +286,7 @@ async fn run_loop<T: App>(mut app: T) -> Result<(), Box<dyn Error>>{
             Event::Input(input) => {
                 match app.handle_input(input).await? {
                     InputResult::Exit => break,
-                    InputResult::Continue => {},
+                    InputResult::Continue => {}
                 };
             }
             Event::Tick => {

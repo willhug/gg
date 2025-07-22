@@ -127,9 +127,17 @@ enum Cmd {
         #[structopt(about = "Branch to checkout", short, long)]
         dest: Option<String>,
     },
-    #[structopt(alias = "d", name = "diff", about = "Shows the current diff for the branch")]
+    #[structopt(
+        alias = "d",
+        name = "diff",
+        about = "Shows the current diff for the branch"
+    )]
     Diff {},
-    #[structopt(alias = "s", name = "status", about = "Shows the list of changed files for the branch")]
+    #[structopt(
+        alias = "s",
+        name = "status",
+        about = "Shows the list of changed files for the branch"
+    )]
     Status {},
     #[structopt(about = "delete closed branches")]
     Cleanup {
@@ -292,7 +300,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     config::update_selected_issue(0);
                 }
             }
-            record::write_status(format!("Landed: {}", pr.title), false);
+            let title = pr.title.unwrap_or_else(|| "Untitled PR".to_string());
+            record::write_status(format!("Landed: {}", title), false);
         }
         Cmd::RebaseOld { interactive } => {
             git::rebase(interactive);
