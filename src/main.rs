@@ -284,23 +284,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             git::delete_branch_all(branch.start());
             let selected_issue = config::get_selected_issue_number();
             if selected_issue > 0 {
-                let issue = github.get_issue(selected_issue).await?;
-                print!(
-                    "Close issue '{}' github.com/{}/{}/issues/{}?\n[y/n]: ",
-                    issue.title, github.org, github.repo, selected_issue
-                );
-                io::stdout().flush().unwrap();
-                let res = std::io::stdin()
-                    .bytes()
-                    .next()
-                    .and_then(|result| result.ok())
-                    .unwrap() as char;
-                if res == 'y' {
-                    github.close_issue(selected_issue).await?;
-                    config::update_selected_issue(0);
+                match github.get_issue(selected_issue).await {
+                    Ok(issue) => {
+                        #[cfg(feature = "octo")]
+                        let issue_title = issue.title.as_str();
+                        #[cfg(not(feature = "octo"))]
+                        let issue_title = issue["title"].as_str().unwrap_or("Untitled Issue");
+
+                        print!(
+                            "Close issue '{}' github.com/{}/{}/issues/{}?\n[y/n]: ",
+                            issue_title, github.org, github.repo, selected_issue
+                        );
+                        io::stdout().flush().unwrap();
+                        let res = std::io::stdin()
+                            .bytes()
+                            .next()
+                            .and_then(|result| result.ok())
+                            .unwrap() as char;
+                        if res == 'y' {
+                            if let Err(e) = github.close_issue(selected_issue).await {
+                                println!("Failed to close issue: {}", e);
+                            }
+                            config::update_selected_issue(0);
+                        }
+                    }
+                    Err(_) => {
+                        println!("Failed to get issue #{}", selected_issue);
+                    }
                 }
             }
+
+            #[cfg(feature = "octo")]
             let title = pr.title.unwrap_or_else(|| "Untitled PR".to_string());
+            #[cfg(not(feature = "octo"))]
+            let title = pr["title"].as_str().unwrap_or("Untitled PR").to_string();
             record::write_status(format!("Landed: {}", title), false);
         }
         Cmd::RebaseOld { interactive } => {

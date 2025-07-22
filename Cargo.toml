@@ -5,9 +5,13 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+octo = ["octocrab"]
+
 [dependencies]
 clap = "3.0.0-beta.4"
-octocrab = "0.44.1"
+octocrab = { version = "0.44.1", optional = true }
 futures = "0.3"
 tokio = {version = "1.12.0", features = ["full"] }
 tempfile = "3"

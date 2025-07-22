@@ -2,6 +2,7 @@ mod app;
 pub mod branches;
 
 use async_trait::async_trait;
+#[cfg(feature = "octo")]
 use octocrab::models::issues::Issue;
 use std::{error::Error, io, sync::mpsc, thread, time::Duration};
 use termion::input::TermRead;
@@ -93,7 +94,10 @@ enum InputResult {
 }
 
 struct IssueViewApp {
+    #[cfg(feature = "octo")]
     issues: Vec<octocrab::models::issues::Issue>,
+    #[cfg(not(feature = "octo"))]
+    issues: Vec<serde_json::Value>,
     selection: usize,
     input_state: InputState,
     buffered_issue_title: String,
@@ -103,47 +107,74 @@ struct IssueViewApp {
 
 impl IssueViewApp {
     async fn new(github: GithubRepo) -> IssueViewApp {
-        IssueViewApp {
-            issues: github.get_issues().await.unwrap(),
+        let mut app = IssueViewApp {
+            issues: vec![],
             selection: 0,
             input_state: InputState::Normal,
-            buffered_issue_title: String::new(),
-            selected_issue: 0,
+            buffered_issue_title: "".to_string(),
+            selected_issue: config::get_selected_issue_number(),
             github,
-        }
+        };
+        app.update().await;
+        app
     }
 
-    fn down(&mut self) {
-        if self.selection < self.issues.len() - 1 {
-            self.selection += 1;
-        }
+    #[cfg(feature = "octo")]
+    fn get_selected(&self) -> &octocrab::models::issues::Issue {
+        &self.issues[self.selection]
     }
 
-    fn up(&mut self) {
-        if self.selection > 0 {
-            self.selection -= 1;
-        }
-    }
-
-    fn get_selected(&self) -> &Issue {
-        self.issues.get(self.selection).unwrap()
+    #[cfg(not(feature = "octo"))]
+    fn get_selected(&self) -> &serde_json::Value {
+        &self.issues[self.selection]
     }
 
     fn set_input_state(&mut self, state: InputState) {
         self.input_state = state;
-        if state == InputState::Normal {
-            self.buffered_issue_title.clear()
+        if state == InputState::Create {
+            self.buffered_issue_title = "".to_string();
         }
+    }
+
+    fn selected(&self) -> usize {
+        if self.issues.is_empty() {
+            return 0;
+        }
+        self.selection % self.issues.len()
+    }
+
+    fn up(&mut self) {
+        if self.issues.is_empty() {
+            return;
+        }
+        if self.selection == 0 {
+            self.selection = self.issues.len() - 1;
+        } else {
+            self.selection -= 1;
+        }
+    }
+
+    fn down(&mut self) {
+        if self.issues.is_empty() {
+            return;
+        }
+        self.selection = (self.selection + 1) % self.issues.len();
     }
 }
 
 #[async_trait]
-impl App for IssueViewApp {
+impl<'a> App for IssueViewApp {
     async fn update(&mut self) {
-        let issues = self.github.get_issues().await.unwrap();
-        self.issues = issues;
+        self.issues = match self.github.get_issues().await {
+            Ok(issues) => issues,
+            Err(_) => vec![],
+        };
         if self.selection >= self.issues.len() {
-            self.selection = self.issues.len() - 1
+            self.selection = if self.issues.is_empty() {
+                0
+            } else {
+                self.issues.len() - 1
+            };
         }
         self.selected_issue = config::get_selected_issue_number();
     }
@@ -164,14 +195,24 @@ impl App for IssueViewApp {
                     style = Style::default().bg(Color::LightGreen);
                 }
                 let mut prefix = " ";
-                if i.number == self.selected_issue {
+
+                #[cfg(feature = "octo")]
+                let (url, title, number) = (i.html_url.as_str(), i.title.as_str(), i.number);
+                #[cfg(not(feature = "octo"))]
+                let (url, title, number) = (
+                    i["html_url"].as_str().unwrap_or(""),
+                    i["title"].as_str().unwrap_or("Untitled"),
+                    i["number"].as_u64().unwrap_or(0),
+                );
+
+                if number == self.selected_issue {
                     prefix = "*";
                 }
                 ListItem::new(Spans::from(vec![
                     Span::styled(prefix, style.fg(Color::Red)),
-                    Span::styled(i.html_url.as_str(), style.fg(Color::Blue)),
+                    Span::styled(url, style.fg(Color::Blue)),
                     Span::styled(" ", style),
-                    Span::styled(i.title.as_str(), style),
+                    Span::styled(title, style),
                 ]))
             })
             .collect();
@@ -202,15 +243,34 @@ impl App for IssueViewApp {
                 }
                 Key::Char('s') => {
                     let i = self.get_selected();
-                    config::update_selected_issue(i.number);
-                    self.selected_issue = i.number;
+                    #[cfg(feature = "octo")]
+                    let number = i.number;
+                    #[cfg(not(feature = "octo"))]
+                    let number = i["number"].as_u64().unwrap_or(0);
+
+                    config::update_selected_issue(number);
+                    self.selected_issue = number;
                 }
                 Key::Char('x') => {
                     config::update_selected_issue(0);
                 }
                 Key::Char('d') => {
                     let i = self.get_selected();
-                    self.github.close_issue(i.number).await?;
+                    #[cfg(feature = "octo")]
+                    let number = i.number;
+                    #[cfg(not(feature = "octo"))]
+                    let number = i["number"].as_u64().unwrap_or(0);
+
+                    match self.github.close_issue(number).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            println!("Failed to close issue: {}", e);
+                            return Err(Box::new(std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                "Failed to close issue",
+                            )));
+                        }
+                    }
                     self.update().await;
                 }
                 Key::Char('c') => {
@@ -218,7 +278,12 @@ impl App for IssueViewApp {
                 }
                 Key::Char('\n') => {
                     let i = self.get_selected();
-                    open::that(&i.html_url.as_str()).unwrap();
+                    #[cfg(feature = "octo")]
+                    let url = i.html_url.as_str();
+                    #[cfg(not(feature = "octo"))]
+                    let url = i["html_url"].as_str().unwrap_or("");
+
+                    open::that(url).unwrap();
                 }
                 _ => {
                     println!("Unknown input!");
@@ -232,9 +297,20 @@ impl App for IssueViewApp {
                     self.buffered_issue_title.pop();
                 }
                 Key::Char('\n') => {
-                    self.github
+                    match self
+                        .github
                         .create_issue(self.buffered_issue_title.clone().as_str(), "")
-                        .await?;
+                        .await
+                    {
+                        Ok(_) => {}
+                        Err(e) => {
+                            println!("Failed to create issue: {}", e);
+                            return Err(Box::new(std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                "Failed to create issue",
+                            )));
+                        }
+                    }
                     self.set_input_state(InputState::Normal);
                     self.update().await;
                 }

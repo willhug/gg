@@ -1,12 +1,17 @@
 use crate::{
-    color,
     config::{self, get_full_config},
     github::GithubRepo,
     record,
 };
+
+#[cfg(feature = "octo")]
+use crate::color;
+
+#[cfg(feature = "octo")]
 use octocrab::models::{issues::Issue, IssueState};
 
 impl GithubRepo {
+    #[cfg(feature = "octo")]
     pub async fn create_issue(&self, title: &str, body: &str) -> octocrab::Result<()> {
         let res = self
             .octo
@@ -24,6 +29,14 @@ impl GithubRepo {
         Ok(())
     }
 
+    #[cfg(not(feature = "octo"))]
+    pub async fn create_issue(&self, title: &str, _body: &str) -> anyhow::Result<()> {
+        // TODO: Use gh CLI: gh issue create --title "title" --body "body"
+        println!("TODO: Create issue '{}' via gh CLI", title);
+        Ok(())
+    }
+
+    #[cfg(feature = "octo")]
     pub async fn list_issues(&self) -> octocrab::Result<()> {
         let res = self.get_issues().await.unwrap();
 
@@ -38,6 +51,14 @@ impl GithubRepo {
         Ok(())
     }
 
+    #[cfg(not(feature = "octo"))]
+    pub async fn list_issues(&self) -> anyhow::Result<()> {
+        // TODO: Use gh CLI: gh issue list --author @me
+        println!("TODO: List issues via gh CLI");
+        Ok(())
+    }
+
+    #[cfg(feature = "octo")]
     pub async fn get_issue(&self, number: u64) -> octocrab::Result<Issue> {
         let res = self
             .octo
@@ -48,6 +69,16 @@ impl GithubRepo {
         Ok(res)
     }
 
+    #[cfg(not(feature = "octo"))]
+    pub async fn get_issue(&self, number: u64) -> anyhow::Result<serde_json::Value> {
+        // TODO: Use gh CLI: gh issue view {number} --json title,url,state
+        println!("TODO: Get issue {} via gh CLI", number);
+        Err(anyhow::anyhow!(
+            "get_issue not implemented without octo feature"
+        ))
+    }
+
+    #[cfg(feature = "octo")]
     pub async fn get_issues(&self) -> octocrab::Result<Vec<Issue>> {
         let res = self
             .octo
@@ -66,6 +97,14 @@ impl GithubRepo {
         Ok(list)
     }
 
+    #[cfg(not(feature = "octo"))]
+    pub async fn get_issues(&self) -> anyhow::Result<Vec<serde_json::Value>> {
+        // TODO: Use gh CLI: gh issue list --author @me --json title,url,state,number
+        println!("TODO: Get issues via gh CLI");
+        Ok(vec![])
+    }
+
+    #[cfg(feature = "octo")]
     pub async fn close_issue(&self, number: u64) -> octocrab::Result<()> {
         let issue = self.get_issue(number).await?;
 
@@ -83,6 +122,18 @@ impl GithubRepo {
             config::clear_selected_issue();
         }
 
+        Ok(())
+    }
+
+    #[cfg(not(feature = "octo"))]
+    pub async fn close_issue(&self, number: u64) -> anyhow::Result<()> {
+        // TODO: Use gh CLI: gh issue close {number}
+        println!("TODO: Close issue {} via gh CLI", number);
+        record::write_status(format!("Closed issue #{}", number), false);
+        let cfg = get_full_config();
+        if cfg.saved.linked_issue.is_some() && cfg.saved.linked_issue.unwrap() == number {
+            config::clear_selected_issue();
+        }
         Ok(())
     }
 }

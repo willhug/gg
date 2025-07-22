@@ -1,24 +1,35 @@
 use crate::file;
 use crate::{color, config, github::GithubRepo};
+#[cfg(feature = "octo")]
 use octocrab::models::pulls::PullRequest;
+#[cfg(feature = "octo")]
 use octocrab::models::IssueState;
+use serde::Deserialize;
 use std::str::from_utf8;
 use std::{collections::HashSet, process::Command};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Pr {
     pub closed: bool,
+    #[serde(default)]
     pub title: String,
+    #[serde(rename = "headRefName", default)]
     pub branch: String,
+    #[serde(default)]
     pub url: String,
+    #[serde(default)]
     pub state: String,
     pub review_decision: Option<String>,
+    #[serde(default)]
     pub mergeable: String,
+    #[serde(default)]
     pub auto_merge_request: bool,
+    #[serde(default)]
     pub test_status: String,
 }
 
 impl GithubRepo {
+    #[cfg(feature = "octo")]
     pub async fn create_pr(
         &self,
         full_branch: String,
@@ -57,6 +68,24 @@ impl GithubRepo {
         Ok(())
     }
 
+    #[cfg(not(feature = "octo"))]
+    pub async fn create_pr(
+        &self,
+        full_branch: String,
+        base: Option<String>,
+        is_draft: bool,
+    ) -> anyhow::Result<()> {
+        let cfg = config::get_full_config();
+        let base = base.unwrap_or(cfg.saved.repo_main_branch);
+        let (title, body) = self.get_title_and_body(base.clone()).await;
+
+        // TODO: Use gh CLI: gh pr create --title "title" --body "body" --head "branch" --base "base" [--draft]
+        let draft_flag = if is_draft { " --draft" } else { "" };
+        println!("TODO: Create PR via gh CLI: gh pr create --title '{}' --body '{}' --head '{}' --base '{}'{}",
+                 title, body, full_branch, base, draft_flag);
+        Ok(())
+    }
+
     async fn get_title_and_body(&self, base: String) -> (String, String) {
         let res = file::open_vim(self.get_template_for_pr(base).await);
         println!("Using body: \n{}", res);
@@ -73,14 +102,27 @@ impl GithubRepo {
             Some(0) => {}
             None => {}
             Some(x) => {
-                let issue = self.get_issue(x).await.unwrap();
-                template.push_str(
-                    format!(
-                        "\n\nResolves Issue: [{}](https://github.com/{}/{}/issues/{})",
-                        issue.title, self.org, self.repo, x,
-                    )
-                    .as_str(),
-                );
+                #[cfg(feature = "octo")]
+                {
+                    let issue = self.get_issue(x).await.unwrap();
+                    template.push_str(
+                        format!(
+                            "\n\nResolves Issue: [{}](https://github.com/{}/{}/issues/{})",
+                            issue.title, self.org, self.repo, x,
+                        )
+                        .as_str(),
+                    );
+                }
+                #[cfg(not(feature = "octo"))]
+                {
+                    template.push_str(
+                        format!(
+                            "\n\nResolves Issue: #{} (https://github.com/{}/{}/issues/{})",
+                            x, self.org, self.repo, x,
+                        )
+                        .as_str(),
+                    );
+                }
             }
         }
         template
@@ -101,12 +143,21 @@ impl GithubRepo {
         result.to_string()
     }
 
+    #[cfg(feature = "octo")]
     pub async fn pr_status(&self, full_branch: String) -> anyhow::Result<()> {
         let pr = self.pr_for_branch(&full_branch).await?;
         self.print_pull(pr, full_branch);
         Ok(())
     }
 
+    #[cfg(not(feature = "octo"))]
+    pub async fn pr_status(&self, full_branch: String) -> anyhow::Result<()> {
+        // TODO: Use gh CLI: gh pr view --json state,title,url,headRefName
+        println!("TODO: Get PR status for '{}' via gh CLI", full_branch);
+        Ok(())
+    }
+
+    #[cfg(feature = "octo")]
     pub async fn pr_for_branch(&self, branch: &String) -> anyhow::Result<Option<PullRequest>> {
         let hub_head = format!("{}:{}", self.org, branch);
         let pulls = self
@@ -125,6 +176,40 @@ impl GithubRepo {
         Ok(Option::None)
     }
 
+    #[cfg(not(feature = "octo"))]
+    pub async fn pr_for_branch(
+        &self,
+        branch: &String,
+    ) -> anyhow::Result<Option<serde_json::Value>> {
+        // TODO: Use gh CLI: gh pr list --head "branch" --json state,title,url,headRefName
+        println!("TODO: Get PR for branch '{}' via gh CLI", branch);
+        Ok(None)
+    }
+
+    #[cfg(not(feature = "octo"))]
+    pub async fn prs_for_branches(&self, branches: &HashSet<String>) -> anyhow::Result<Vec<Pr>> {
+        let mut cmd = Command::new("gh");
+        cmd.arg("pr")
+            .arg("list")
+            .arg("--author")
+            .arg("@me")
+            .arg("-s")
+            .arg("all")
+            .arg("-L")
+            .arg("100")
+            .arg("--json")
+            .arg("closed,title,headRefName,url,reviewDecision,mergeable");
+        let res = cmd.output().map_err(anyhow::Error::msg)?;
+        let out = String::from_utf8(res.stdout).map_err(anyhow::Error::msg)?;
+        let err = String::from_utf8(res.stderr).map_err(anyhow::Error::msg)?;
+        if !err.is_empty() {
+            println!("Err: {}", err);
+        }
+        let prs: Vec<Pr> = serde_json::from_str(&out).map_err(anyhow::Error::msg)?;
+        Ok(prs)
+    }
+
+    #[cfg(feature = "octo")]
     pub async fn prs_for_branches(&self, branches: &HashSet<String>) -> anyhow::Result<Vec<Pr>> {
         let query = format!(
             "
@@ -245,6 +330,7 @@ impl GithubRepo {
         Ok(prs)
     }
 
+    #[cfg(feature = "octo")]
     fn print_pull(&self, pull: Option<PullRequest>, branch: String) {
         let (state, url, title) = match pull {
             Some(p) => (
@@ -271,6 +357,13 @@ impl GithubRepo {
         )
     }
 
+    #[cfg(not(feature = "octo"))]
+    fn print_pull(&self, _pull: Option<serde_json::Value>, branch: String) {
+        // TODO: Implement print_pull for gh CLI JSON response
+        println!("{}\tTODO: Get PR info via gh CLI", color::blue(branch));
+    }
+
+    #[cfg(feature = "octo")]
     pub async fn land_pr(&self, full_branch: String) -> anyhow::Result<()> {
         let pr = self
             .pr_for_branch(&full_branch)
@@ -295,7 +388,18 @@ impl GithubRepo {
         Ok(())
     }
 
+    #[cfg(not(feature = "octo"))]
+    pub async fn land_pr(&self, full_branch: String) -> anyhow::Result<()> {
+        // TODO: Use gh CLI: gh pr merge --squash
+        println!(
+            "TODO: Merge PR for '{}' via gh CLI: gh pr merge --squash",
+            full_branch
+        );
+        Ok(())
+    }
+
     // Change the base of a branch
+    #[cfg(feature = "octo")]
     pub async fn change_base(&self, full_branch: String, new_base: String) -> anyhow::Result<()> {
         let pr = self
             .pr_for_branch(&full_branch)
@@ -319,6 +423,16 @@ impl GithubRepo {
             .graphql(query.as_str())
             .await
             .map_err(anyhow::Error::msg)?;
+        Ok(())
+    }
+
+    #[cfg(not(feature = "octo"))]
+    pub async fn change_base(&self, full_branch: String, new_base: String) -> anyhow::Result<()> {
+        // TODO: Use gh CLI: gh pr edit --base "new_base"
+        println!(
+            "TODO: Change base of PR for '{}' to '{}' via gh CLI: gh pr edit --base '{}'",
+            full_branch, new_base, new_base
+        );
         Ok(())
     }
 }
