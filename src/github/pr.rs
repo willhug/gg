@@ -79,10 +79,27 @@ impl GithubRepo {
         let base = base.unwrap_or(cfg.saved.repo_main_branch);
         let (title, body) = self.get_title_and_body(base.clone()).await;
 
-        // TODO: Use gh CLI: gh pr create --title "title" --body "body" --head "branch" --base "base" [--draft]
-        let draft_flag = if is_draft { " --draft" } else { "" };
-        println!("TODO: Create PR via gh CLI: gh pr create --title '{}' --body '{}' --head '{}' --base '{}'{}",
-                 title, body, full_branch, base, draft_flag);
+        let mut cmd = Command::new("gh");
+        cmd.arg("pr")
+            .arg("create")
+            .arg("-H")
+            .arg(full_branch)
+            .arg("-B")
+            .arg(base)
+            .arg("-b")
+            .arg(body)
+            .arg("-t")
+            .arg(title);
+
+        if is_draft {
+            cmd.arg("--draft");
+        }
+        let res = cmd.output().map_err(anyhow::Error::msg)?;
+
+        let result = from_utf8(&res.stdout).expect("msg");
+        let err = from_utf8(&res.stderr).expect("msg");
+        println!("Out: {}", result.to_string());
+        println!("Err: {}", err.to_string());
         Ok(())
     }
 
