@@ -96,10 +96,10 @@ impl GithubRepo {
         }
         let res = cmd.output().map_err(anyhow::Error::msg)?;
 
-        let result = from_utf8(&res.stdout).expect("msg");
-        let err = from_utf8(&res.stderr).expect("msg");
-        println!("Out: {}", result.to_string());
-        println!("Err: {}", err.to_string());
+        let result = from_utf8(&res.stdout).expect("failed to parse gh pr create output as UTF-8");
+        let err = from_utf8(&res.stderr).expect("failed to parse gh pr create stderr as UTF-8");
+        println!("Out: {}", result);
+        println!("Err: {}", err);
         Ok(())
     }
 
@@ -146,17 +146,16 @@ impl GithubRepo {
     }
 
     fn get_git_log_from_base_branch(&self, core_branch: String) -> String {
-        let out = match Command::new("git")
+        let out = Command::new("git")
             .arg("log")
             .arg("--pretty=%s%n%+b")
             .arg(format!("origin/{}..HEAD", core_branch))
             .output()
-        {
-            Ok(output) => output,
-            Err(_e) => panic!("error!"),
-        };
+            .expect("failed to get git log for PR template");
         let x: &[_] = &[' ', '\t', '\n', '\r'];
-        let result = from_utf8(&out.stdout).expect("msg").trim_end_matches(x);
+        let result = from_utf8(&out.stdout)
+            .expect("failed to parse git log output as UTF-8")
+            .trim_end_matches(x);
         result.to_string()
     }
 
@@ -223,6 +222,10 @@ impl GithubRepo {
             println!("Err: {}", err);
         }
         let prs: Vec<Pr> = serde_json::from_str(&out).map_err(anyhow::Error::msg)?;
+        let prs = prs
+            .into_iter()
+            .filter(|pr| branches.contains(pr.branch.as_str()))
+            .collect();
         Ok(prs)
     }
 
@@ -400,18 +403,24 @@ impl GithubRepo {
 
         println!("Merge was {}", if res.merged { "good" } else { "bad" });
         if !res.merged {
-            panic!("error merging time");
+            return Err(anyhow::anyhow!("PR merge failed - check if the PR is mergeable"));
         }
         Ok(())
     }
 
     #[cfg(not(feature = "octo"))]
     pub async fn land_pr(&self, full_branch: String) -> anyhow::Result<()> {
-        // TODO: Use gh CLI: gh pr merge --squash
-        println!(
-            "TODO: Merge PR for '{}' via gh CLI: gh pr merge --squash",
-            full_branch
-        );
+        let res = Command::new("gh")
+            .arg("pr")
+            .arg("merge")
+            .arg("--squash")
+            .arg(&full_branch)
+            .status()
+            .map_err(anyhow::Error::msg)?;
+        if !res.success() {
+            return Err(anyhow::anyhow!("gh pr merge failed for '{}'", full_branch));
+        }
+        println!("Merged PR for '{}'", full_branch);
         Ok(())
     }
 
@@ -445,11 +454,21 @@ impl GithubRepo {
 
     #[cfg(not(feature = "octo"))]
     pub async fn change_base(&self, full_branch: String, new_base: String) -> anyhow::Result<()> {
-        // TODO: Use gh CLI: gh pr edit --base "new_base"
-        println!(
-            "TODO: Change base of PR for '{}' to '{}' via gh CLI: gh pr edit --base '{}'",
-            full_branch, new_base, new_base
-        );
+        let res = Command::new("gh")
+            .arg("pr")
+            .arg("edit")
+            .arg(&full_branch)
+            .arg("--base")
+            .arg(&new_base)
+            .status()
+            .map_err(anyhow::Error::msg)?;
+        if !res.success() {
+            return Err(anyhow::anyhow!(
+                "gh pr edit --base failed for '{}' -> '{}'",
+                full_branch,
+                new_base
+            ));
+        }
         Ok(())
     }
 }

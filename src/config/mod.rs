@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::str::from_utf8;
+
+use crate::git;
 
 #[derive(Debug)]
 pub struct FullConfig {
@@ -30,7 +30,7 @@ fn default_split() -> String {
 }
 
 pub fn get_full_config() -> FullConfig {
-    let homedir = dirs::home_dir().unwrap();
+    let homedir = dirs::home_dir().expect("failed to determine home directory");
     FullConfig {
         saved: get_saved_config(),
         repo_name: get_repo_name(),
@@ -41,17 +41,8 @@ pub fn get_full_config() -> FullConfig {
 }
 
 fn get_repo_name() -> String {
-    let out = match Command::new("git")
-        .arg("rev-parse")
-        .arg("--show-toplevel")
-        .output()
-    {
-        Ok(output) => output,
-        Err(_e) => panic!("error!"),
-    };
-    let x: &[_] = &[' ', '\t', '\n', '\r'];
-    let result = from_utf8(&out.stdout).expect("msg").trim_end_matches(x);
-    result.split('/').last().unwrap().to_string()
+    let root = git::get_repo_root();
+    root.split('/').last().expect("failed to extract repo name from path").to_string()
 }
 
 pub fn get_saved_config() -> SavedConfig {
@@ -64,8 +55,8 @@ pub fn get_saved_config() -> SavedConfig {
     };
 
     let mut buf = String::new();
-    file.read_to_string(&mut buf).expect("no error reading!");
-    let c: SavedConfig = serde_json::from_str(buf.as_str()).expect("res!");
+    file.read_to_string(&mut buf).expect("failed to read GG_CONFIG file");
+    let c: SavedConfig = serde_json::from_str(buf.as_str()).expect("failed to parse GG_CONFIG as JSON");
     c
 }
 
@@ -76,17 +67,7 @@ fn get_saved_config_file_path() -> PathBuf {
 }
 
 fn get_repo_root_path() -> String {
-    let out = match Command::new("git")
-        .arg("rev-parse")
-        .arg("--show-toplevel")
-        .output()
-    {
-        Ok(output) => output,
-        Err(_e) => panic!("error!"),
-    };
-    let x: &[_] = &[' ', '\t', '\n', '\r'];
-    let result = from_utf8(&out.stdout).expect("msg").trim_end_matches(x);
-    result.to_string()
+    git::get_repo_root()
 }
 
 pub fn clear_selected_issue() {
@@ -125,7 +106,7 @@ fn create_saved_config() -> File {
         "Config file not found, creating one at {}",
         get_saved_config_file_path()
             .to_str()
-            .expect("should have been str")
+            .expect("config file path should be valid UTF-8")
     );
     println!("Please input what the main branch is [main|master]: ");
 
@@ -153,7 +134,7 @@ fn create_saved_config() -> File {
     let config = SavedConfig {
         repo_main_branch: line.to_string(),
         linked_issue: None,
-        branch_prefix: prefix.to_string(), // replace
+        branch_prefix: prefix.to_string(),
         repo_org: org.to_string(),
         branch_split: split.to_string(),
     };
@@ -168,13 +149,13 @@ fn write_saved_config(cfg: SavedConfig) -> File {
         .create(true)
         .truncate(true)
         .open(get_saved_config_file_path())
-        .unwrap();
+        .expect("failed to open GG_CONFIG file for writing");
 
-    let cfg_json = serde_json::to_string(&cfg).expect("error serializing");
+    let cfg_json = serde_json::to_string(&cfg).expect("failed to serialize config as JSON");
 
     file.write_all(cfg_json.as_bytes())
-        .expect("could not write to cfg file");
-    file.sync_all().expect("should be able to write to disk");
+        .expect("failed to write config to GG_CONFIG file");
+    file.sync_all().expect("failed to sync GG_CONFIG to disk");
     file.seek(SeekFrom::Start(0)).unwrap();
 
     file

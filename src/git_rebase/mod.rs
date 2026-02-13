@@ -36,7 +36,10 @@ pub(crate) fn abort_rebase() {
 pub(crate) fn continue_rebase() {
     let br = TmpBranchWrapper::new_from_tmp_branch(current_branch());
 
-    cherry_continue();
+    if !cherry_continue() {
+        eprintln!("Cherry-pick --continue failed. Resolve conflicts and run `gg rebase --continue` again.");
+        std::process::exit(1);
+    }
 
     finish_rebase(br);
 }
@@ -54,11 +57,16 @@ fn rebase_onto(branch_to_rebase: TmpBranchWrapper, onto: String, strategy: Optio
     new(branch_to_rebase.tmp_start_branch_name().as_str());
     new(branch_to_rebase.tmp_branch_name().as_str());
     println!("Cherry-picking changes onto branch {}", onto);
-    cherry_pick(
+    let success = cherry_pick(
         branch_to_rebase.inner.start(),
         branch_to_rebase.inner.full(),
         strategy,
     );
+    if !success {
+        eprintln!("Cherry-pick failed (likely a conflict).");
+        eprintln!("Resolve conflicts, then run `gg rebase --continue` or `gg rebase --abort` to cancel.");
+        return;
+    }
     finish_rebase(branch_to_rebase);
 }
 
@@ -105,11 +113,11 @@ fn get_hooks_path() -> String {
             .arg("config")
             .arg("core.hooksPath")
             .output()
-            .expect("failed to create branch");
+            .expect("failed to get hooks path");
 
     let x: &[_] = &[' ', '\t', '\n', '\r', '*'];
     from_utf8(&out.stdout)
-        .expect("msg")
+        .expect("failed to parse hooks path as UTF-8")
         .trim_end_matches(x)
         .to_string()
 }
@@ -121,14 +129,14 @@ fn set_hooks_path(path: &str) {
             .arg("--unset")
             .arg("core.hooksPath")
             .output()
-            .expect("failed to create branch");
+            .expect("failed to unset hooks path");
     } else {
         Command::new("git")
             .arg("config")
             .arg("core.hooksPath")
             .arg(path)
             .output()
-            .expect("failed to create branch");
+            .expect("failed to set hooks path");
     }
 }
 
@@ -171,7 +179,7 @@ fn branch_from_tmp(branch: String) -> String {
     if let Some(suffix) = branch.strip_prefix(TMP_PREFIX) {
         return suffix.to_string()
     }
-    panic!("Expected to be in tmp branch/rebase")
+    panic!("Expected to be on a tmp rebase branch (starting with '{}'), but current branch is '{}'", TMP_PREFIX, branch);
 }
 
 fn branches_are_equivalent(br1: String, br2: String) -> bool {

@@ -11,7 +11,7 @@ pub(crate) fn new(branch: &str) {
         .arg("-b")
         .arg(branch.to_lowercase())
         .output()
-        .expect("failed to create branch");
+        .expect("failed to create new branch");
 }
 
 pub(crate) fn rename_branch(new_branch_name: &str, old_branch_name: &str) {
@@ -21,7 +21,7 @@ pub(crate) fn rename_branch(new_branch_name: &str, old_branch_name: &str) {
         .arg(old_branch_name)
         .arg(new_branch_name)
         .output()
-        .expect("failed to create branch");
+        .expect("failed to rename branch");
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -46,7 +46,9 @@ pub(crate) fn all_branch_infos() -> Vec<Branch> {
         .output()
         .expect("failed to get branch infos");
     let x: &[_] = &[' ', '\t', '\n', '\r', '*'];
-    let result = from_utf8(&out.stdout).expect("msg").trim_end_matches(x);
+    let result = from_utf8(&out.stdout)
+        .expect("failed to parse branch info output as UTF-8")
+        .trim_end_matches(x);
     let mut branches = vec![];
     for line in result.split('\n') {
         let trimmed_line = line.trim_matches(x);
@@ -57,12 +59,14 @@ pub(crate) fn all_branch_infos() -> Vec<Branch> {
 }
 
 pub(crate) fn all_branches() -> Vec<String> {
-    let out = match Command::new("git").arg("branch").output() {
-        Ok(output) => output,
-        Err(_e) => panic!("error!"),
-    };
+    let out = Command::new("git")
+        .arg("branch")
+        .output()
+        .expect("failed to list git branches");
     let x: &[_] = &[' ', '\t', '\n', '\r', '*'];
-    let result = from_utf8(&out.stdout).expect("msg").trim_end_matches(x);
+    let result = from_utf8(&out.stdout)
+        .expect("failed to parse branch list output as UTF-8")
+        .trim_end_matches(x);
     let mut branches = vec![];
     for line in result.split('\n') {
         let trimmed_line = line.trim_matches(x);
@@ -85,12 +89,14 @@ pub(crate) fn all_managed_branches() -> Vec<String> {
         cfg.saved.branch_prefix.clone(),
         cfg.saved.branch_split.clone()
     );
-    let out = match Command::new("git").arg("branch").output() {
-        Ok(output) => output,
-        Err(_e) => panic!("error!"),
-    };
+    let out = Command::new("git")
+        .arg("branch")
+        .output()
+        .expect("failed to list git branches");
     let x: &[_] = &[' ', '\t', '\n', '\r', '*'];
-    let result = from_utf8(&out.stdout).expect("msg").trim_end_matches(x);
+    let result = from_utf8(&out.stdout)
+        .expect("failed to parse branch list output as UTF-8")
+        .trim_end_matches(x);
     let mut branches = vec![];
     for line in result.split('\n') {
         let trimmed_line = line.trim_matches(x);
@@ -104,17 +110,16 @@ pub(crate) fn all_managed_branches() -> Vec<String> {
 }
 
 pub(crate) fn current_branch() -> String {
-    let out = match Command::new("git")
+    let out = Command::new("git")
         .arg("rev-parse")
         .arg("--abbrev-ref")
         .arg("HEAD")
         .output()
-    {
-        Ok(output) => output,
-        Err(_e) => panic!("error!"),
-    };
+        .expect("failed to get current branch name (is this a git repository?)");
     let x: &[_] = &[' ', '\t', '\n', '\r'];
-    let result = from_utf8(&out.stdout).expect("msg").trim_end_matches(x);
+    let result = from_utf8(&out.stdout)
+        .expect("failed to parse current branch output as UTF-8")
+        .trim_end_matches(x);
     result.to_string()
 }
 
@@ -136,7 +141,7 @@ pub(crate) fn push(full_branches: Vec<String>, force: bool) {
         c.arg(branch);
     }
 
-    let res = c.status().expect("did not get successful response.");
+    let res = c.status().expect("failed to run git push");
 
     if res.success() {
         println!("{}", color::bold(color::green("Success!")));
@@ -157,7 +162,7 @@ pub(crate) fn fetch_branch(br: &str) {
         .arg("origin")
         .arg(br)
         .output()
-        .expect("failed to fetch main branch");
+        .expect("failed to fetch branch from origin");
 }
 
 pub(crate) fn fixup_main() {
@@ -167,7 +172,7 @@ pub(crate) fn fixup_main() {
         .arg("-i")
         .arg(current_branch.start())
         .status()
-        .expect("failed to fixup main branch");
+        .expect("failed to run interactive rebase for fixup");
 }
 
 pub(crate) fn rebase(interactive: bool) {
@@ -178,12 +183,15 @@ pub(crate) fn rebase(interactive: bool) {
         c.arg("-i");
     }
 
-    assert!(c
+    let output = c
         .arg(format!("origin/{}", cfg.repo_main_branch))
         .output()
-        .expect("failed to rebase")
-        .status
-        .success(),);
+        .expect("failed to run git rebase");
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        eprintln!("Rebase failed: {}", stderr);
+        std::process::exit(1);
+    }
 }
 
 pub(crate) fn checkout_main() {
@@ -191,14 +199,16 @@ pub(crate) fn checkout_main() {
     checkout(&format!("origin/{}", cfg.repo_main_branch));
 }
 
-pub(crate) fn checkout(branch: &String) {
-    assert!(Command::new("git")
+pub(crate) fn checkout(branch: &str) {
+    let output = Command::new("git")
         .arg("checkout")
         .arg(branch)
         .output()
-        .expect("failed to checkout main")
-        .status
-        .success());
+        .expect("failed to run git checkout");
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        panic!("failed to checkout '{}': {}", branch, stderr.trim());
+    }
 }
 
 pub(crate) fn reset(branch: String, hard: bool) {
@@ -207,10 +217,10 @@ pub(crate) fn reset(branch: String, hard: bool) {
     if hard {
         c.arg("--hard");
     }
-    c.arg(branch).output().expect("failed to reset");
+    c.arg(branch).output().expect("failed to run git reset");
 }
 
-pub(crate) fn force_branch_to_be<B, N>(branch: B, new_ref: N) 
+pub(crate) fn force_branch_to_be<B, N>(branch: B, new_ref: N)
 where
     B: AsRef<str>,
     N: AsRef<str>,
@@ -225,11 +235,22 @@ where
         .arg(branch.as_ref())
         .arg(new_ref.as_ref())
         .status()
-        .expect("failed to delete branch");
+        .expect("failed to force-move branch pointer");
+}
+
+#[allow(dead_code)]
+pub(crate) fn branch_exists(branch: &str) -> bool {
+    Command::new("git")
+        .arg("rev-parse")
+        .arg("--verify")
+        .arg(branch)
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
 }
 
 pub(crate) fn delete_branch_all(branch: String) {
-    // TODO check for branch existance before deleting.
+    // Delete from remote (may not exist, that's ok)
     Command::new("git")
         .arg("push")
         .arg("origin")
@@ -237,19 +258,21 @@ pub(crate) fn delete_branch_all(branch: String) {
         .arg(branch.clone())
         .status()
         .ok();
+    // Delete local branch (may not exist if only remote)
     Command::new("git")
         .arg("branch")
         .arg("-D")
         .arg(branch.clone())
         .status()
-        .expect("failed to delete branch");
+        .ok();
+    // Delete remote tracking branch (may not exist)
     Command::new("git")
         .arg("branch")
         .arg("-D")
         .arg("-r")
-        .arg(branch)
+        .arg(format!("origin/{}", branch))
         .status()
-        .expect("failed to delete branch");
+        .ok();
 }
 
 pub(crate) fn delete_branch_local(branch: &str) {
@@ -258,7 +281,7 @@ pub(crate) fn delete_branch_local(branch: &str) {
         .arg("-D")
         .arg(branch)
         .status()
-        .expect("failed to delete branch");
+        .ok();
 }
 
 #[derive(Clone, PartialEq)]
@@ -430,7 +453,7 @@ fn partfloat_to_partx100(part: f32) -> u32 {
     (part * 100.0) as u32
 }
 
-pub(crate) fn cherry_pick(start_ref: String, end_ref: String, strategy: Option<String>) {
+pub(crate) fn cherry_pick(start_ref: String, end_ref: String, strategy: Option<String>) -> bool {
     let mut c = Command::new("git");
 
     c.arg("cherry-pick")
@@ -441,25 +464,28 @@ pub(crate) fn cherry_pick(start_ref: String, end_ref: String, strategy: Option<S
         c.arg("--strategy-option").arg(strategy);
     }
 
-    assert!(c.status().expect("Failed to cherry-pick").success());
+    let status = c.status().expect("failed to run git cherry-pick");
+    status.success()
 }
 
 pub(crate) fn cherry_abort() {
-    assert!(Command::new("git")
+    let status = Command::new("git")
         .arg("cherry-pick")
         .arg("--abort")
         .status()
-        .expect("Failed to cherry-pick")
-        .success(),);
+        .expect("failed to run git cherry-pick --abort");
+    if !status.success() {
+        eprintln!("Warning: cherry-pick --abort returned non-zero status");
+    }
 }
 
-pub(crate) fn cherry_continue() {
-    assert!(Command::new("git")
+pub(crate) fn cherry_continue() -> bool {
+    let status = Command::new("git")
         .arg("cherry-pick")
         .arg("--continue")
         .status()
-        .expect("Failed to cherry-pick")
-        .success());
+        .expect("failed to run git cherry-pick --continue");
+    status.success()
 }
 
 pub(crate) fn get_commit_hash(branch: String) -> String {
@@ -467,12 +493,14 @@ pub(crate) fn get_commit_hash(branch: String) -> String {
         .arg("rev-parse")
         .arg(branch.clone())
         .output()
-        .expect("error getting hash");
+        .expect("failed to run git rev-parse");
     if !out.status.success() {
-        panic!("error getting hash {}", branch);
+        panic!("failed to get commit hash for '{}': branch may not exist", branch);
     }
     let x: &[_] = &[' ', '\t', '\n', '\r'];
-    let result = from_utf8(&out.stdout).expect("msg").trim_end_matches(x);
+    let result = from_utf8(&out.stdout)
+        .expect("failed to parse commit hash output as UTF-8")
+        .trim_end_matches(x);
     result.to_string()
 }
 
@@ -487,7 +515,7 @@ pub(crate) fn diff(start_ref: String, end_ref: Option<String>) {
         Some(end_ref) => format!("{}..{}", start_ref, end_ref),
         None => start_ref,
     });
-    c.status().expect("failed to diff branch");
+    c.status().expect("failed to run git diff");
 }
 
 pub(crate) fn status(start_ref: String, end_ref: Option<String>) {
@@ -498,7 +526,7 @@ pub(crate) fn status(start_ref: String, end_ref: Option<String>) {
         Some(end_ref) => format!("{}..{}", start_ref, end_ref),
         None => start_ref,
     });
-    c.status().expect("failed to status branch");
+    c.status().expect("failed to run git diff --stat");
 }
 
 pub(crate) fn sync(force: bool) {
@@ -527,12 +555,27 @@ fn get_create_timestamp(br: &str) -> i64 {
         .arg("--pretty=format:%ct")
         .arg(br)
         .output()
-        .expect("error getting hash");
+        .expect("failed to run git show for timestamp");
     if !out.status.success() {
-        panic!("error getting timestamp {}", br);
+        panic!("failed to get timestamp for '{}': ref may not exist", br);
     }
     let x: &[_] = &[' ', '\t', '\n', '\r'];
-    let result = from_utf8(&out.stdout).expect("msg").trim_end_matches(x);
+    let result = from_utf8(&out.stdout)
+        .expect("failed to parse timestamp output as UTF-8")
+        .trim_end_matches(x);
     println!("{}", result);
-    result.parse::<i64>().expect("failed to parse timestamp")
+    result.parse::<i64>().expect("failed to parse timestamp as integer")
+}
+
+pub(crate) fn get_repo_root() -> String {
+    let out = Command::new("git")
+        .arg("rev-parse")
+        .arg("--show-toplevel")
+        .output()
+        .expect("failed to get git repo root (is this a git repository?)");
+    let x: &[_] = &[' ', '\t', '\n', '\r'];
+    from_utf8(&out.stdout)
+        .expect("failed to parse repo root path as UTF-8")
+        .trim_end_matches(x)
+        .to_string()
 }
