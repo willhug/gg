@@ -396,7 +396,7 @@ impl GithubRepo {
             .octo
             .pulls(self.org.clone(), self.repo.clone())
             .merge(pr.number)
-            .method(octocrab::params::pulls::MergeMethod::Squash)
+            .method(octocrab::params::pulls::MergeMethod::Rebase)
             .send()
             .await
             .map_err(anyhow::Error::msg)?;
@@ -413,7 +413,7 @@ impl GithubRepo {
         let res = Command::new("gh")
             .arg("pr")
             .arg("merge")
-            .arg("--squash")
+            .arg("--rebase")
             .arg(&full_branch)
             .status()
             .map_err(anyhow::Error::msg)?;
@@ -469,6 +469,91 @@ impl GithubRepo {
                 new_base
             ));
         }
+        Ok(())
+    }
+
+    // Post a comment on a PR
+    #[cfg(feature = "octo")]
+    pub async fn post_comment(&self, full_branch: String, comment: &str) -> anyhow::Result<()> {
+        let pr = self
+            .pr_for_branch(&full_branch)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("No PR found for branch '{}'", full_branch))?;
+
+        self.octo
+            .issues(self.org.clone(), self.repo.clone())
+            .create_comment(pr.number, comment)
+            .await
+            .map_err(anyhow::Error::msg)?;
+
+        println!("Posted comment on PR #{}", pr.number);
+        Ok(())
+    }
+
+    #[cfg(not(feature = "octo"))]
+    pub async fn post_comment(&self, full_branch: String, comment: &str) -> anyhow::Result<()> {
+        let res = Command::new("gh")
+            .arg("pr")
+            .arg("comment")
+            .arg(&full_branch)
+            .arg("--body")
+            .arg(comment)
+            .status()
+            .map_err(anyhow::Error::msg)?;
+        if !res.success() {
+            return Err(anyhow::anyhow!(
+                "gh pr comment failed for '{}'",
+                full_branch
+            ));
+        }
+        println!("Posted comment on PR for '{}'", full_branch);
+        Ok(())
+    }
+
+    // Enable auto-merge on a PR
+    #[cfg(feature = "octo")]
+    pub async fn enable_auto_merge(&self, full_branch: String) -> anyhow::Result<()> {
+        let pr = self
+            .pr_for_branch(&full_branch)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("No PR found for branch '{}'", full_branch))?;
+
+        let query = format!(
+            "
+                mutation {{
+                    enablePullRequestAutoMerge(input: {{pullRequestId: \"{}\", mergeMethod: REBASE}}) {{
+                        clientMutationId
+                    }}
+                }}
+            ",
+            pr.node_id.as_ref().unwrap_or(&"".to_string()),
+        );
+        let _res: serde_json::Value = self
+            .octo
+            .graphql(query.as_str())
+            .await
+            .map_err(anyhow::Error::msg)?;
+        println!("Auto-merge enabled for PR #{}", pr.number);
+        Ok(())
+    }
+
+    #[cfg(not(feature = "octo"))]
+    pub async fn enable_auto_merge(&self, full_branch: String) -> anyhow::Result<()> {
+        let res = Command::new("gh")
+            .arg("pr")
+            .arg("merge")
+            .arg(&full_branch)
+            .arg("--auto")
+            .arg("--rebase")
+            .status()
+            .map_err(anyhow::Error::msg)?;
+        if !res.success() {
+            return Err(anyhow::anyhow!(
+                "gh pr merge --auto failed for '{}'",
+                full_branch
+            ));
+        }
+        println!("Auto-merge enabled for PR for '{}'", full_branch);
         Ok(())
     }
 }

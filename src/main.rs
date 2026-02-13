@@ -4,6 +4,7 @@ mod file;
 mod git;
 mod git_rebase;
 mod github;
+mod merge;
 mod pomodoro;
 mod record;
 mod terminal;
@@ -163,6 +164,27 @@ enum Cmd {
     },
     #[structopt(about = "dumps debug info")]
     Debug {},
+    #[structopt(
+        name = "prep-merge",
+        about = "Prepare a stacked PR for merge to main (rebase onto main, change PR base, optionally trigger merge)"
+    )]
+    PrepMerge {},
+    #[structopt(about = "Configure gg settings")]
+    Config(ConfigSubcommand),
+}
+
+#[derive(StructOpt, Debug)]
+#[structopt(about = "Commands for configuring gg")]
+enum ConfigSubcommand {
+    #[structopt(about = "Set a config value")]
+    Set {
+        #[structopt(about = "Config key (e.g., merge-method, merge-command)")]
+        key: String,
+        #[structopt(about = "Config value")]
+        value: String,
+    },
+    #[structopt(about = "Show current config")]
+    Show {},
 }
 
 #[derive(StructOpt, Debug)]
@@ -517,6 +539,57 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .await
                 .expect("error getting PRs");
         }
+        Cmd::PrepMerge {} => {
+            let cfg = config::get_full_config();
+            let github = GithubRepo::new(cfg).await;
+            merge::prep_merge(&github)
+                .await
+                .expect("error running prep-merge");
+        }
+        Cmd::Config(sub) => match sub {
+            ConfigSubcommand::Set { key, value } => match key.as_str() {
+                "merge-method" => {
+                    if !["api", "comment", "auto", "none"].contains(&value.as_str()) {
+                        eprintln!(
+                            "Invalid merge method '{}'. Must be one of: api, comment, auto, none",
+                            value
+                        );
+                        std::process::exit(1);
+                    }
+                    config::update_merge_config(Some(value.clone()), None);
+                    println!("Set merge-method to '{}'", value);
+                }
+                "merge-command" => {
+                    config::update_merge_config(None, Some(value.clone()));
+                    println!("Set merge-command to '{}'", value);
+                }
+                _ => {
+                    eprintln!("Unknown config key '{}'. Available: merge-method, merge-command", key);
+                    std::process::exit(1);
+                }
+            },
+            ConfigSubcommand::Show {} => {
+                let cfg = config::get_saved_config();
+                println!("Main branch: {}", cfg.repo_main_branch);
+                println!("Branch prefix: {}", cfg.branch_prefix);
+                println!("Branch split: {}", cfg.branch_split);
+                println!("Repo org: {}", cfg.repo_org);
+                println!(
+                    "Merge method: {}",
+                    cfg.merge_method.as_deref().unwrap_or("none")
+                );
+                println!(
+                    "Merge command: {}",
+                    cfg.merge_command.as_deref().unwrap_or("(not set)")
+                );
+                println!(
+                    "Linked issue: {}",
+                    cfg.linked_issue
+                        .map(|i| i.to_string())
+                        .unwrap_or_else(|| "none".to_string())
+                );
+            }
+        },
     }
     Ok(())
 }

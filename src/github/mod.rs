@@ -32,8 +32,21 @@ impl GithubRepo {
 
     #[cfg(not(feature = "octo"))]
     pub async fn new(cfg: FullConfig) -> GithubRepo {
-        // TODO: Implement getting current user via gh CLI
-        let current_user = "unknown".to_string();
+        let current_user = std::process::Command::new("gh")
+            .arg("api")
+            .arg("user")
+            .arg("--jq")
+            .arg(".login")
+            .output()
+            .ok()
+            .and_then(|o| {
+                if o.status.success() {
+                    String::from_utf8(o.stdout).ok().map(|s| s.trim().to_string())
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| "unknown".to_string());
         GithubRepo {
             org: cfg.saved.repo_org,
             repo: cfg.repo_name,

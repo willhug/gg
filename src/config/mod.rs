@@ -23,6 +23,12 @@ pub struct SavedConfig {
 
     #[serde(default = "default_split")]
     pub branch_split: String,
+
+    #[serde(default)]
+    pub merge_command: Option<String>,
+
+    #[serde(default)]
+    pub merge_method: Option<String>,
 }
 
 fn default_split() -> String {
@@ -100,6 +106,19 @@ pub fn update_prefix_and_split(prefix: &str, split: &str) {
     write_saved_config(cfg);
 }
 
+pub fn update_merge_config(method: Option<String>, command: Option<String>) {
+    let mut cfg = get_saved_config();
+
+    if let Some(m) = method {
+        cfg.merge_method = Some(m);
+    }
+    if let Some(c) = command {
+        cfg.merge_command = Some(c);
+    }
+
+    write_saved_config(cfg);
+}
+
 fn create_saved_config() -> File {
     // Query for main/master info
     println!(
@@ -137,12 +156,14 @@ fn create_saved_config() -> File {
         branch_prefix: prefix.to_string(),
         repo_org: org.to_string(),
         branch_split: split.to_string(),
+        merge_command: None,
+        merge_method: None,
     };
 
     write_saved_config(config)
 }
 
-fn write_saved_config(cfg: SavedConfig) -> File {
+pub(crate) fn write_saved_config(cfg: SavedConfig) -> File {
     let mut file = OpenOptions::new()
         .read(true)
         .write(true)
