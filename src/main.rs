@@ -169,6 +169,37 @@ enum Cmd {
         about = "Prepare a stacked PR for merge to main (rebase onto main, change PR base, optionally trigger merge)"
     )]
     PrepMerge {},
+    #[structopt(
+        name = "merge-stack",
+        about = "Process an entire stack for merging"
+    )]
+    MergeStack {
+        #[structopt(long, about = "Long-running watch mode, polls periodically")]
+        watch: bool,
+        #[structopt(long, about = "Show what would happen without doing anything")]
+        dry_run: bool,
+        #[structopt(
+            long,
+            default_value = "30",
+            about = "Poll interval in seconds for watch mode"
+        )]
+        interval: u64,
+        #[structopt(
+            long = "max-part",
+            about = "Only process branches up to this part number (e.g. 3.0)"
+        )]
+        max_part: Option<f32>,
+        #[structopt(
+            long = "parts",
+            about = "Comma-separated list of part numbers to process (e.g. 1.0,2.0,4.0)",
+            use_delimiter = true
+        )]
+        parts: Vec<f32>,
+        #[structopt(long = "skip-approval", about = "Ignore approval status when checking readiness")]
+        skip_approval: bool,
+        #[structopt(long = "skip-tests", about = "Ignore test status when checking readiness")]
+        skip_tests: bool,
+    },
     #[structopt(about = "Configure gg settings")]
     Config(ConfigSubcommand),
 }
@@ -545,6 +576,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             merge::prep_merge(&github)
                 .await
                 .expect("error running prep-merge");
+        }
+        Cmd::MergeStack {
+            watch,
+            dry_run,
+            interval,
+            max_part,
+            parts,
+            skip_approval,
+            skip_tests,
+        } => {
+            let cfg = config::get_full_config();
+            let github = GithubRepo::new(cfg).await;
+            let opts = merge::MergeStackOpts {
+                dry_run,
+                max_part,
+                parts,
+                skip_approval,
+                skip_tests,
+            };
+            if watch {
+                merge::merge_stack_watch(&github, interval, &opts)
+                    .await
+                    .expect("error in merge-stack watch");
+            } else {
+                merge::merge_stack(&github, &opts)
+                    .await
+                    .expect("error in merge-stack");
+            }
         }
         Cmd::Config(sub) => match sub {
             ConfigSubcommand::Set { key, value } => match key.as_str() {
