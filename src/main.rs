@@ -8,6 +8,7 @@ mod merge;
 mod pomodoro;
 mod record;
 mod terminal;
+mod worktree;
 use anyhow::Result;
 use config::get_saved_config;
 use git::{current_parsed_branch, diff, status, sync};
@@ -200,8 +201,39 @@ enum Cmd {
         #[structopt(long = "skip-tests", about = "Ignore test status when checking readiness")]
         skip_tests: bool,
     },
+    #[structopt(about = "Manage git worktrees for parallel workflows")]
+    Worktree(WorktreeSubcommand),
     #[structopt(about = "Configure gg settings")]
     Config(ConfigSubcommand),
+}
+
+#[derive(StructOpt, Debug)]
+#[structopt(about = "Commands for managing git worktrees")]
+enum WorktreeSubcommand {
+    #[structopt(about = "Create a new worktree")]
+    Create {
+        #[structopt(about = "Name for the worktree")]
+        name: String,
+    },
+    #[structopt(about = "List active worktrees")]
+    List {},
+    #[structopt(about = "Assign a branch to a worktree")]
+    Assign {
+        #[structopt(about = "Worktree name")]
+        worktree: String,
+        #[structopt(about = "Branch to assign")]
+        branch: String,
+    },
+    #[structopt(about = "Remove a worktree")]
+    Remove {
+        #[structopt(about = "Worktree name")]
+        name: String,
+    },
+    #[structopt(about = "Pre-create N worktrees for agent use")]
+    Pool {
+        #[structopt(long, about = "Number of worktrees in pool")]
+        size: u32,
+    },
 }
 
 #[derive(StructOpt, Debug)]
@@ -605,6 +637,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .expect("error in merge-stack");
             }
         }
+        Cmd::Worktree(sub) => match sub {
+            WorktreeSubcommand::Create { name } => {
+                worktree::create_worktree(&name);
+            }
+            WorktreeSubcommand::List {} => {
+                worktree::list_worktrees();
+            }
+            WorktreeSubcommand::Assign { worktree, branch } => {
+                worktree::assign_worktree(&worktree, &branch);
+            }
+            WorktreeSubcommand::Remove { name } => {
+                worktree::remove_worktree(&name);
+            }
+            WorktreeSubcommand::Pool { size } => {
+                worktree::create_pool(size);
+            }
+        },
         Cmd::Config(sub) => match sub {
             ConfigSubcommand::Set { key, value } => match key.as_str() {
                 "merge-method" => {
