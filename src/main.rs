@@ -788,3 +788,16 @@ async fn log(all: bool) {
         github.pr_status(branch).await.expect("error seeing PR");
     }
 }
+
+#[cfg(test)]
+mod test_helpers;
+#[cfg(test)]
+mod test_git;
+#[cfg(test)]
+mod test_config;
+#[cfg(test)]
+mod test_rebase;
+#[cfg(test)]
+mod test_github;
+#[cfg(test)]
+mod test_merge;
