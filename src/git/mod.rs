@@ -138,7 +138,7 @@ pub(crate) fn push(full_branches: Vec<String>, force: bool) {
     c.arg("origin");
 
     for branch in full_branches {
-        c.arg(branch);
+        c.arg(format!("{}:{}", &branch, &branch));
     }
 
     let res = c.status().expect("failed to run git push");
